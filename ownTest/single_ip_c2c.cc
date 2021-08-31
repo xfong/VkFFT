@@ -58,23 +58,43 @@ int main() {
     //Device management + code submission
     configuration.platform = &vkGPU.platform;
     configuration.context = &vkGPU.context;
+
+    // Allocate memory on GPU side
     cl_mem buffer = clCreateBuffer(vkGPU.context, CL_MEM_READ_WRITE, bufferSize, NULL, &res);
     if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_BUFFER;
+
+    // Copy input data to GPU prior to FFT execution
     res = clEnqueueWriteBuffer(vkGPU.commandQueue, buffer, true, 0, sizeof(float)* 2 * Nx, buffer_input, 0, NULL, NULL);
     if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_COPY;
+
+    // Prepare the FFT to run on the GPU side
     VkFFTResult resFFT = initializeVkFFT(&app, configuration); // In-place FFT
     VkFFTLaunchParams launchParams = {};
     launchParams.buffer = &buffer;
     launchParams.commandQueue = &vkGPU.commandQueue;
+
+    // Execute FFT on the input buffer
     resFFT = VkFFTAppend(&app, -1, &launchParams); // Run FFT
+
+    // Wait for GPU to finish computation
     res = clFinish(vkGPU.commandQueue);
     if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
+
+    // Allocate memory to transfer GPU results back to host
     float* buffer_output = (float*)malloc(sizeof(float) * 2 * Nx);
     if (!buffer_output) return VKFFT_ERROR_MALLOC_FAILED;
+
+    // Transfer GPU results back to host
     res = clEnqueueReadBuffer(vkGPU.commandQueue, buffer, true, 0, sizeof(float)* 2 * Nx, buffer_output, 0, NULL, NULL);
     if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_COPY;
+
+    // Free up GPU memory
     res = clReleaseMemObject(buffer);
     if (res != CL_SUCCESS) return (int)(res);
+
+    // Free up resources occupied by VkFFT
     deleteVkFFT(&app);
+
+    // End program
     return 0;
 }
