@@ -55,6 +55,8 @@ interfaceFFTPlan* createFFTPlan(cl_context ctx) {
     // float  =  0
     // double =  1
     plan->dataType = 0;
+    plan->config.halfPrecision = false;
+    plan->config.doublePrecision = false;
 
     // Initialize flag to ensure plan is baked before execution can happen
     plan->isBaked = false;
@@ -77,6 +79,16 @@ void setFFTPlanDataType(interfaceFFTPlan* plan, int dataType) {
     // float  =  0
     // double =  1
     plan->dataType = dataType;
+    if (dataType < 0) {
+        plan->config.halfPrecision   = true;
+        plan->config.doublePrecision = false;
+    } else if (dataType > 0) {
+        plan->config.halfPrecision   = false;
+        plan->config.doublePrecision = true;
+    } else {
+        plan->config.halfPrecision   = false;
+        plan->config.doublePrecision = false;
+    }
     setFFTPlanBufferSizes(plan);
 }
 
@@ -165,8 +177,14 @@ void setFFTPlanBufferSizes(interfaceFFTPlan* plan) {
     }
 
     // Update plan
-    plan->config.inputBufferSize = &plan->inputBufferSize;
-    plan->config.bufferSize      = &plan->outputBufferSize;
+    plan->config.inputBufferSize       = &plan->inputBufferSize;
+    plan->config.inputBufferStride[0]  = 1;
+    plan->config.inputBufferStride[1]  = plan->config.size[0];
+    plan->config.inputBufferStride[2]  = plan->config.inputBufferStride[1]*plan->config.size[1];
+    plan->config.bufferSize            = &plan->outputBufferSize;
+    plan->config.outputBufferStride[0] = 1;
+    plan->config.outputBufferStride[1] = plan->config.size[0] / 2 + 1;
+    plan->config.outputBufferStride[2] = plan->config.outputBufferStride[1]*plan->config.size[1];
 }
 
 // Interface to initializeVkFFT()
