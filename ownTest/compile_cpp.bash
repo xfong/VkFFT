@@ -7,4 +7,7 @@ CPATHS="-I${CUDA_PATH}/include"
 LDPATHS="-L${CUDA_PATH}/lib64"
 LIBS="-lOpenCL -lm"
 
-gcc ${FLAGS} ${CPATHS} ${LDPATHS} ${IFN}.cc ${LIBS} -o ${IFN}
+if [ -f ${IFN}.o ]; then
+    rm ${IFN}.o
+fi
+g++ ${FLAGS} ${CPATHS} ${LDPATHS} -c ${IFN}.cpp ${LIBS} -o ${IFN}.o

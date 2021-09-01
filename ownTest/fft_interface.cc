@@ -4,7 +4,11 @@
 // Basic function to return a FFT plan.
 // This flow is similar to other FFT libraries such as FFTW, cuFFT, clFFT, rocFFT.
 interfaceFFTPlan* createFFTPlan(cl_context ctx) {
-    interfaceFFTPlan* plan = new interfaceFFTPlan;
+    interfaceFFTPlan* plan = (interfaceFFTPlan*)malloc(sizeof(interfaceFFTPlan));
+    // Empty plan
+    plan->config  = {};
+    plan->app     = {};
+    plan->lParams = {};
 
     cl_int res;
     // Grab required information from context given...
@@ -14,20 +18,20 @@ interfaceFFTPlan* createFFTPlan(cl_context ctx) {
     size_t numCount = 0;
     res = clGetContextInfo(plan->context, CL_CONTEXT_DEVICES, sizeof(cl_device_id), &plan->device, &numCount);
     if (res != CL_SUCCESS) {
-        delete(plan);
+        free(plan);
         return NULL;
     }
 
     res = clGetDeviceInfo(plan->device, CL_DEVICE_PLATFORM, sizeof(cl_platform_id), &plan->platform, &numCount);
     if (res != CL_SUCCESS) {
-        delete(plan);
+        free(plan);
         return NULL;
     }
 
     // Create a command queue for the plan
     plan->commandQueue = clCreateCommandQueue(plan->context, plan->device, 0, &res);
     if (res != CL_SUCCESS) {
-        delete(plan);
+        free(plan);
         return NULL;
     }
 
@@ -249,5 +253,5 @@ VkFFTResult executeBackwardFFT(interfaceFFTPlan* plan, cl_mem* input, cl_mem* ds
 // Interface function to clean up
 void DestroyFFTPlan(interfaceFFTPlan* plan) {
     deleteVkFFT(&plan->app);
-    delete(plan);
+    free(plan);
 }

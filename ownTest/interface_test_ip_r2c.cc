@@ -1,9 +1,9 @@
 #include "fft_interface.h"
-#include <CL/cl.hpp>
-#include <iostream>
+#include <CL/cl.h>
+#include <stdio.h>
 
 int main() {
-    std::cout << "Starting..." << std::endl;
+    printf("Starting...\n");
     // Main OpenCL variables
     cl_platform_id    platform;
     cl_device_id      device;
@@ -17,14 +17,14 @@ int main() {
     cl_platform_id tmp;
     res = clGetPlatformIDs(1, &tmp, &numPlatforms);
     if (res != CL_SUCCESS) {
-        std::cout << "Unable to get initial list of platforms" << std::endl;
+        printf("Unable to get initial list of platforms\n");
         return VKFFT_ERROR_FAILED_TO_INITIALIZE;
     }
     cl_platform_id* platforms = (cl_platform_id*) malloc(sizeof(cl_platform_id) * numPlatforms);
     if (!platforms) return VKFFT_ERROR_MALLOC_FAILED;
     res = clGetPlatformIDs(numPlatforms, platforms, 0);
     if (res != CL_SUCCESS) {
-        std::cout << "Unable to get list of platforms" << std::endl;
+        printf("Unable to get list of platforms\n");
         return VKFFT_ERROR_FAILED_TO_INITIALIZE;
     }
     uint64_t k =0;
@@ -35,7 +35,7 @@ int main() {
         if (!deviceList) return VKFFT_ERROR_MALLOC_FAILED;
         res = clGetDeviceIDs(platforms[j], CL_DEVICE_TYPE_ALL, numDevices, deviceList, 0);
         if (res != CL_SUCCESS) {
-            std::cout << "Unable to get list of devices on platform" << std::endl;
+            printf("Unable to get list of devices on platform\n");
             return VKFFT_ERROR_FAILED_TO_GET_DEVICE;
         }
         for (uint64_t i = 0; i < numDevices; i++) {
@@ -44,12 +44,12 @@ int main() {
                 device = deviceList[i];
                 context = clCreateContext(NULL, 1, &device, NULL, NULL, &res);
                 if (res != CL_SUCCESS) {
-                    std::cout << "Unable to create context" << std::endl;
+                    printf("Unable to create context\n");
                     return VKFFT_ERROR_FAILED_TO_CREATE_CONTEXT;
                 }
                 commandQueue = clCreateCommandQueue(context, device, 0, &res);
                 if (res != CL_SUCCESS) {
-                    std::cout << "Unable to create command queue" << std::endl;
+                    printf("Unable to create command queue\n");
                     return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
                 }
                 k++;
@@ -61,13 +61,31 @@ int main() {
         free(deviceList);
     }
     free(platforms);
-    auto clDevice = cl::Device(device);
-    std::string deviceName;
-    res = clDevice.getInfo(CL_DEVICE_NAME, &deviceName);
+    char deviceName[512];
+    res = clGetDeviceInfo(device, CL_DEVICE_NAME, 512, &deviceName[0], NULL);
     if (res != CL_SUCCESS) {
-        std::cout << "Unable to get device name" << std::endl;
+        printf("Unable to get device name\n");
         return res;
     }
-    std::cout << "    Targeting: " << deviceName << std::endl;
+    printf("    Targeting: %s \n", deviceName);
+
+    // Create the R2C plan...
+    printf("Creating plan...\n");
+    interfaceFFTPlan* plan = createR2CFFTPlan(context);
+    size_t lengths[3];
+    lengths[0] = 128;
+    lengths[1] = 64;
+    lengths[1] = 32;
+    printf("Setting plan lengths...\n");
+    setFFTSize(plan, lengths);
+    printf("Baking plan...\n");
+    res = BakeFFTPlan(plan);
+    if (res != VKFFT_SUCCESS) {
+        printf("Unable to bake plan...abort\n");
+        return -1;
+    }
+    printf("Exiting...\n");
+    DestroyFFTPlan(plan);
+
     return 0;
 }
