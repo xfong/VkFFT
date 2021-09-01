@@ -73,9 +73,9 @@ int main() {
     printf("Creating plan...\n");
     interfaceFFTPlan* plan = createR2CFFTPlan(context);
     size_t lengths[3];
-    lengths[0] = 128;
-    lengths[1] = 64;
-    lengths[1] = 32;
+    lengths[0] = 32;
+    lengths[1] = 8;
+    lengths[1] = 4;
     printf("Setting plan lengths...\n");
     setFFTSize(plan, lengths);
     printf("Baking plan...\n");
