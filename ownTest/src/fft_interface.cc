@@ -196,7 +196,13 @@ void setFFTPlanBufferSizes(interfaceFFTPlan* plan) {
 // any execution
 VkFFTResult BakeFFTPlan(interfaceFFTPlan* plan) {
     VkFFTResult res;
+#if(__DEBUG__>0)
+    printf("Begin initialization...\n");
+#endif
     res = initializeVkFFT(&plan->app, plan->config);
+#if(__DEBUG__>0)
+    printf("    Done with initialization...\n");
+#endif
     if (res == VKFFT_SUCCESS) {
         plan->isBaked = true;
     } else {

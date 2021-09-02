@@ -17317,6 +17317,9 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 	kernelPreparationConfiguration.bufferSize = &app->bufferBluesteinSize[axis_id];
 	kernelPreparationConfiguration.isInputFormatted = 1;
 
+#if(__DEBUG__>0)
+        printf("In kernel preparation...\n");
+#endif
 	resFFT = initializeVkFFT(&kernelPreparationApplication, kernelPreparationConfiguration);
 	if (resFFT != VKFFT_SUCCESS) return resFFT;
 
@@ -21880,6 +21883,9 @@ static inline VkFFTResult VkFFTPlanAxis(VkFFTApplication* app, VkFFTPlan* FFTPla
 }
 static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfiguration inputLaunchConfiguration) {
 	//app->configuration = {};// inputLaunchConfiguration;
+#if(__DEBUG__>0)
+        printf("Entered...\n");
+#endif
 	if (inputLaunchConfiguration.doublePrecision != 0)	app->configuration.doublePrecision = inputLaunchConfiguration.doublePrecision;
 	if (inputLaunchConfiguration.doublePrecisionFloatMemory != 0)	app->configuration.doublePrecisionFloatMemory = inputLaunchConfiguration.doublePrecisionFloatMemory;
 	if (inputLaunchConfiguration.halfPrecision != 0)	app->configuration.halfPrecision = inputLaunchConfiguration.halfPrecision;
@@ -22257,6 +22263,9 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 		break;
 	}
 #endif
+#if(__DEBUG__>0)
+        printf("  Check dim...\n");
+#endif
 	//set main parameters:
 	if (inputLaunchConfiguration.FFTdim == 0) {
 		deleteVkFFT(app);
@@ -22322,6 +22331,9 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 	app->configuration.isOutputFormatted = inputLaunchConfiguration.isOutputFormatted;
 	app->configuration.performConvolution = inputLaunchConfiguration.performConvolution;
 
+#if(__DEBUG__>0)
+        printf("  after input formatting...\n");
+#endif
 	if (inputLaunchConfiguration.bufferNum == 0)	app->configuration.bufferNum = 1;
 	else app->configuration.bufferNum = inputLaunchConfiguration.bufferNum;
 #if(VKFFT_BACKEND==0) 
@@ -22374,6 +22386,9 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 
 	}
 
+#if(__DEBUG__>0)
+        printf("  Check if input formatted...\n");
+#endif
 	if (app->configuration.isInputFormatted) {
 		if (inputLaunchConfiguration.inputBufferNum == 0)	app->configuration.inputBufferNum = 1;
 		else app->configuration.inputBufferNum = inputLaunchConfiguration.inputBufferNum;
@@ -22400,6 +22415,9 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 		app->configuration.inputBufferSize = app->configuration.bufferSize;
 		app->configuration.inputBuffer = app->configuration.buffer;
 	}
+#if(__DEBUG__>0)
+        printf("  Check output formatted...\n");
+#endif
 	if (app->configuration.isOutputFormatted) {
 		if (inputLaunchConfiguration.outputBufferNum == 0)	app->configuration.outputBufferNum = 1;
 		else
@@ -22454,6 +22472,9 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 	if (inputLaunchConfiguration.outputBufferOffset != 0)	app->configuration.outputBufferOffset = inputLaunchConfiguration.outputBufferOffset;
 	if (inputLaunchConfiguration.kernelOffset != 0)	app->configuration.kernelOffset = inputLaunchConfiguration.kernelOffset;
 
+#if(__DEBUG__>0)
+        printf("  Check buffer size addressing...\n");
+#endif
 	//set optional parameters:
 	uint64_t checkBufferSizeFor64BitAddressing = 0;
 	for (uint64_t i = 0; i < app->configuration.bufferNum; i++) {
@@ -22507,6 +22528,9 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 		app->configuration.disableMergeSequencesR2C = inputLaunchConfiguration.disableMergeSequencesR2C;
 	}
 
+#if(__DEBUG__>0)
+        printf("  Check normalize...\n");
+#endif
 	app->configuration.normalize = 0;
 	if (inputLaunchConfiguration.normalize != 0)	app->configuration.normalize = inputLaunchConfiguration.normalize;
 	if (inputLaunchConfiguration.makeForwardPlanOnly != 0)	app->configuration.makeForwardPlanOnly = inputLaunchConfiguration.makeForwardPlanOnly;
@@ -22526,6 +22550,9 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 	if (inputLaunchConfiguration.registerBoostNonPow2 != 0)	app->configuration.registerBoostNonPow2 = inputLaunchConfiguration.registerBoostNonPow2;
 	if (inputLaunchConfiguration.registerBoost4Step != 0)	app->configuration.registerBoost4Step = inputLaunchConfiguration.registerBoost4Step;
 
+#if(__DEBUG__>0)
+        printf("  Check r2c...\n");
+#endif
 	if (app->configuration.performR2C != 0) {
 		app->configuration.registerBoost = 1;
 		app->configuration.registerBoostNonPow2 = 0;
@@ -22618,24 +22645,54 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 #endif
 	VkFFTResult resFFT = VKFFT_SUCCESS;
 	uint64_t initSharedMemory = app->configuration.sharedMemorySize;
+#if(__DEBUG__>0)
+        printf("  Check if NOT forward plan only...\n");
+#endif
 	if (!app->configuration.makeForwardPlanOnly) {
 		app->localFFTPlan_inverse = (VkFFTPlan*)calloc(1, sizeof(VkFFTPlan));
+#if(__DEBUG__>0)
+                printf("  Calloc vkfftplan for localfftplan_inverse...\n");
+#endif
 		if (app->localFFTPlan_inverse) {
+#if(__DEBUG__>0)
+                       printf("  successful Calloc vkfftplan for localfftplan_inverse...\n");
+#endif
 			for (uint64_t i = 0; i < app->configuration.FFTdim; i++) {
+#if(__DEBUG__>0)
+                                printf("    inside first for... (dim = %d)\n", i);
+#endif
 				app->configuration.sharedMemorySize = ((app->configuration.size[i] & (app->configuration.size[i] - 1)) == 0) ? app->configuration.sharedMemorySizePow2 : initSharedMemory;
+#if(__DEBUG__>0)
+                                printf("    calling scheduler...\n");
+#endif
 				resFFT = VkFFTScheduler(app, app->localFFTPlan_inverse, i, 0);
+#if(__DEBUG__>0)
+                                printf("    back from scheduler...\n");
+#endif
 				if (resFFT != VKFFT_SUCCESS) {
 					deleteVkFFT(app);
 					return resFFT;
 				}
+#if(__DEBUG__>0)
+                                printf("    check bluesteinfft...\n");
+#endif
 				if (app->useBluesteinFFT[i] && (app->localFFTPlan_inverse->numAxisUploads[i] > 1)) {
 					for (uint64_t j = 0; j < app->localFFTPlan_inverse->numAxisUploads[i]; j++) {
+#if(__DEBUG__>0)
+                                                printf("      interating localFFTplan_inverse...\n");
+#endif
 						app->localFFTPlan_inverse->inverseBluesteinAxes[i][j] = app->localFFTPlan_inverse->axes[i][j];
 					}
 				}
 			}
+#if(__DEBUG__>0)
+                       printf("  after first for...\n");
+#endif
 			for (uint64_t i = 0; i < app->configuration.FFTdim; i++) {
 				app->configuration.sharedMemorySize = ((app->configuration.size[i] & (app->configuration.size[i] - 1)) == 0) ? app->configuration.sharedMemorySizePow2 : initSharedMemory;
+#if(__DEBUG__>0)
+                                printf("  inside second for...\n");
+#endif
 				for (uint64_t j = 0; j < app->localFFTPlan_inverse->numAxisUploads[i]; j++) {
 					resFFT = VkFFTPlanAxis(app, app->localFFTPlan_inverse, i, j, 1, 0);
 					if (resFFT != VKFFT_SUCCESS) {
@@ -22643,6 +22700,9 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 						return resFFT;
 					}
 				}
+#if(__DEBUG__>0)
+                                printf("  after nested for...\n");
+#endif
 				if (app->useBluesteinFFT[i] && (app->localFFTPlan_inverse->numAxisUploads[i] > 1)) {
 					for (uint64_t j = 1; j < app->localFFTPlan_inverse->numAxisUploads[i]; j++) {
 						resFFT = VkFFTPlanAxis(app, app->localFFTPlan_inverse, i, j, 1, 1);
@@ -22662,12 +22722,21 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 			}
 		}
 		else {
+#if(__DEBUG__>0)
+                       printf("  failed Calloc vkfftplan for localfftplan_inverse...\n");
+#endif
 			deleteVkFFT(app);
 			return VKFFT_ERROR_MALLOC_FAILED;
 		}
 	}
+#if(__DEBUG__>0)
+        printf("  Check if NOT backward plan only...\n");
+#endif
 	if (!app->configuration.makeInversePlanOnly) {
 		app->localFFTPlan = (VkFFTPlan*)calloc(1, sizeof(VkFFTPlan));
+#if(__DEBUG__>0)
+                printf("  Calloc vkfftplan for localfftplan_inverse...\n");
+#endif
 		if (app->localFFTPlan) {
 			for (uint64_t i = 0; i < app->configuration.FFTdim; i++) {
 				app->configuration.sharedMemorySize = ((app->configuration.size[i] & (app->configuration.size[i] - 1)) == 0) ? app->configuration.sharedMemorySizePow2 : initSharedMemory;
@@ -22716,6 +22785,9 @@ static inline VkFFTResult initializeVkFFT(VkFFTApplication* app, VkFFTConfigurat
 	}
 	for (uint64_t i = 0; i < app->configuration.FFTdim; i++) {
 		if (app->useBluesteinFFT[i]) {
+#if(__DEBUG__>0)
+                        printf("    Generate Phase Vectors for Bluestein...\n");
+#endif
 			if (!app->configuration.makeInversePlanOnly)
 				resFFT = VkFFTGeneratePhaseVectors(app, app->localFFTPlan, i, 0);
 			else
