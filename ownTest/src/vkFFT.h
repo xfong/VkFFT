@@ -16621,6 +16621,9 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 	VkFFTResult res = VKFFT_SUCCESS;
 	VkFFTAxis* axes = FFTPlan->axes[axis_id];
 
+#if(__DEBUG__>0)
+        printf("  Beginning of scheduler...\n");
+#endif
 	uint64_t complexSize;
 	if (app->configuration.doublePrecision || app->configuration.doublePrecisionFloatMemory)
 		complexSize = (2 * sizeof(double));
@@ -16629,6 +16632,9 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 			complexSize = (2 * sizeof(float));
 		else
 			complexSize = (2 * sizeof(float));
+#if(__DEBUG__>0)
+        printf("  after checking double precision...\n");
+#endif
 	uint64_t maxSequenceLengthSharedMemory = app->configuration.sharedMemorySize / complexSize;
 	uint64_t maxSingleSizeNonStrided = maxSequenceLengthSharedMemory;
 	uint64_t nonStridedAxisId = (app->configuration.considerAllAxesStrided) ? -1 : 0;
@@ -16641,15 +16647,27 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 		FFTPlan->actualPerformR2CPerAxis[axis_id] = 0;
 		FFTPlan->multiUploadR2C = 1;
 	}
+#if(__DEBUG__>0)
+        printf("    after checking axis and r2c...\n");
+#endif
 	if (app->configuration.performDCT == 4) {
 		FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] = app->configuration.size[axis_id] / 2; // now in actualFFTSize - modified dimension size for R2C/DCT
 		//FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] = app->configuration.size[axis_id] * 8; // now in actualFFTSize - modified dimension size for R2C/DCT
 	}
+#if(__DEBUG__>0)
+        printf("  after checking dct...\n");
+#endif
 	if ((axis_id > 0) && (app->configuration.performR2C)) {
 		FFTPlan->actualFFTSizePerAxis[axis_id][0] = FFTPlan->actualFFTSizePerAxis[axis_id][0] / 2 + 1;
 	}
+#if(__DEBUG__>0)
+        printf("    before multipliers...\n");
+#endif
 	uint64_t multipliers[20] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };//split the sequence
 	uint64_t tempSequence = FFTPlan->actualFFTSizePerAxis[axis_id][axis_id];
+#if(__DEBUG__>0)
+        printf("    before tempSequence...\n");
+#endif
 	for (uint64_t i = 2; i < 14; i++) {
 		if (tempSequence % i == 0) {
 			tempSequence /= i;
@@ -16657,12 +16675,18 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 			i--;
 		}
 	}
+#if(__DEBUG__>0)
+        printf("    after tempSequence...\n");
+#endif
 	if (tempSequence != 1) {
 		app->useBluesteinFFT[axis_id] = 1;
 		app->configuration.registerBoost = 1;
 		tempSequence = 2 * FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] - 1;
 		uint64_t FFTSizeSelected = 0;
 		if (app->configuration.fixMaxRadixBluestein > 0) {
+#if(__DEBUG__>0)
+                        printf("    before while 1...\n");
+#endif
 			while (!FFTSizeSelected) {
 				uint64_t testSequence = tempSequence;
 				for (uint64_t i = 0; i < 20; i++) {
@@ -16678,8 +16702,14 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 				if (testSequence == 1) FFTSizeSelected = 1;
 				else tempSequence++;
 			}
+#if(__DEBUG__>0)
+                        printf("    after while 1...\n");
+#endif
 		}
 		else {
+#if(__DEBUG__>0)
+                        printf("    before while 2...\n");
+#endif
 			while (!FFTSizeSelected) {
 				if (axis_id == nonStridedAxisId) {
 					if ((FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] < 128) || ((((uint64_t)pow(2, (uint64_t)ceil(log2(tempSequence))) * 0.75) <= tempSequence) && (((uint64_t)pow(2, (uint64_t)ceil(log2(tempSequence))) <= maxSequenceLengthSharedMemory) || ((2 * FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] - 1) > maxSequenceLengthSharedMemory))))  tempSequence = (uint64_t)pow(2, (uint64_t)ceil(log2(tempSequence)));
@@ -16711,6 +16741,9 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 					else tempSequence++;
 				}
 			}
+#if(__DEBUG__>0)
+                        printf("    after while 2...\n");
+#endif
 		}
 		FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] = tempSequence;
 		//check if padded system still single upload for r2c - else redo the optimization
@@ -16721,6 +16754,9 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 			tempSequence = 2 * FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] - 1;
 			uint64_t FFTSizeSelected = 0;
 			if (app->configuration.fixMaxRadixBluestein > 0) {
+#if(__DEBUG__>0)
+                                printf("    before while 3...\n");
+#endif
 				while (!FFTSizeSelected) {
 					uint64_t testSequence = tempSequence;
 					for (uint64_t i = 0; i < 20; i++) {
@@ -16736,8 +16772,14 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 					if (testSequence == 1) FFTSizeSelected = 1;
 					else tempSequence++;
 				}
+#if(__DEBUG__>0)
+                                printf("    after while 3...\n");
+#endif
 			}
 			else {
+#if(__DEBUG__>0)
+                                printf("    before while 4...\n");
+#endif
 				while (!FFTSizeSelected) {
 					if (axis_id == nonStridedAxisId) {
 						if ((FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] < 128) || ((((uint64_t)pow(2, (uint64_t)ceil(log2(tempSequence))) * 0.75) <= tempSequence) && (((uint64_t)pow(2, (uint64_t)ceil(log2(tempSequence))) <= maxSequenceLengthSharedMemory) || ((2 * FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] - 1) > maxSequenceLengthSharedMemory))))  tempSequence = (uint64_t)pow(2, (uint64_t)ceil(log2(tempSequence)));
@@ -16769,6 +16811,9 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 						else tempSequence++;
 					}
 				}
+#if(__DEBUG__>0)
+                                printf("    after while 4...\n");
+#endif
 			}
 			FFTPlan->actualFFTSizePerAxis[axis_id][axis_id] = tempSequence;
 		}
@@ -16778,6 +16823,9 @@ static inline VkFFTResult VkFFTScheduler(VkFFTApplication* app, VkFFTPlan* FFTPl
 			maxSingleSizeNonStrided = maxSequenceLengthSharedMemory;
 		}
 	}
+#if(__DEBUG__>0)
+        printf("    before isPowOf2...\n");
+#endif
 	uint64_t isPowOf2 = (pow(2, (uint64_t)log2(FFTPlan->actualFFTSizePerAxis[axis_id][axis_id])) == FFTPlan->actualFFTSizePerAxis[axis_id][axis_id]) ? 1 : 0;
 	if (app->configuration.tempBufferSize[0] == 0) {
 		if ((app->configuration.performR2C) && (axis_id == 0)) {
