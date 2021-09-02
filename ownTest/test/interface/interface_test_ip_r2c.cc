@@ -75,7 +75,7 @@ int main() {
     size_t lengths[3];
     lengths[0] = 32;
     lengths[1] = 8;
-    lengths[1] = 4;
+    lengths[2] = 4;
     printf("Setting plan lengths...\n");
     setFFTSize(plan, lengths);
     printf("Baking plan...\n");
