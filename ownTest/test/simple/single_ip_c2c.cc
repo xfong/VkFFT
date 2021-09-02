@@ -1,4 +1,5 @@
 #include <CL/cl.h>
+#include <stdio.h>
 #include "header.h"
 
 int main() {
@@ -39,14 +40,17 @@ int main() {
     }
     free(platforms);
 
+    printf("Begin test...\n");
     // Generate test data
     uint64_t Nx = 4096;
     float* buffer_input = (float*)malloc(sizeof(float) * 2 * Nx);
+    printf("    Generate test data...\n");
     if (!buffer_input) return VKFFT_ERROR_MALLOC_FAILED;
     for (uint64_t i = 0; i < 2 * Nx; i++) {
         buffer_input[i] = (float)(2 * ((float)rand()) / RAND_MAX - 1.0);
     }
 
+    printf("    Setting up plan...\n");
     // Setting up FFT calls
     VkFFTConfiguration configuration = {};
     VkFFTApplication app = {};
@@ -59,6 +63,7 @@ int main() {
     configuration.platform = &vkGPU.platform;
     configuration.context = &vkGPU.context;
 
+    printf("    Copying data to GPU...\n");
     // Allocate memory on GPU side
     cl_mem buffer = clCreateBuffer(vkGPU.context, CL_MEM_READ_WRITE, bufferSize, NULL, &res);
     if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_BUFFER;
@@ -68,33 +73,43 @@ int main() {
     if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_COPY;
 
     // Prepare the FFT to run on the GPU side
+    printf("    Initializing plan...\n");
     VkFFTResult resFFT = initializeVkFFT(&app, configuration); // In-place FFT
+
+    // Prepare to launch FFT
+    printf("    Preparing to launch FFT in GPU...\n");
     VkFFTLaunchParams launchParams = {};
     launchParams.buffer = &buffer;
     launchParams.commandQueue = &vkGPU.commandQueue;
 
     // Execute FFT on the input buffer
+    printf("    Launch FFT in GPU...\n");
     resFFT = VkFFTAppend(&app, -1, &launchParams); // Run FFT
 
     // Wait for GPU to finish computation
+    printf("    Waitting for GPU to return...\n");
     res = clFinish(vkGPU.commandQueue);
     if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
 
     // Allocate memory to transfer GPU results back to host
+    printf("    Preparing to retrieve FFT result from GPU...\n");
     float* buffer_output = (float*)malloc(sizeof(float) * 2 * Nx);
     if (!buffer_output) return VKFFT_ERROR_MALLOC_FAILED;
 
     // Transfer GPU results back to host
+    printf("    Retrieve FFT result from GPU...\n");
     res = clEnqueueReadBuffer(vkGPU.commandQueue, buffer, true, 0, sizeof(float)* 2 * Nx, buffer_output, 0, NULL, NULL);
     if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_COPY;
 
     // Free up GPU memory
+    printf("    Tear down...\n");
     res = clReleaseMemObject(buffer);
     if (res != CL_SUCCESS) return (int)(res);
 
     // Free up resources occupied by VkFFT
     deleteVkFFT(&app);
 
+    printf("Done!\n");
     // End program
     return 0;
 }
