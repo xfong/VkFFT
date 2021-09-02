@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FLAGS="-O4 -fPIC -Wall -std=c99 -D__DEBUG__=1"
+FLAGS="-O4 -fPIC -Wall -std=c99"
 CPATHS="-I${CUDA_PATH}/include"
 LDPATHS="-L${CUDA_PATH}/lib64"
 LIBS="-lOpenCL -lm"
