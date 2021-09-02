@@ -1,4 +1,4 @@
-#include "vkfft.h"
+#include "vkfft_c_interface.h"
 #include <CL/cl.h>
 #include <stdio.h>
 
