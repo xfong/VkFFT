@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FLAGS="-O4 -fPIC -Wall -DVKFFT_BACKEND=3"
+FLAGS="-O4 -fPIC -Wall"
 CPATHS="-I${CUDA_PATH}/include"
 LDPATHS="-L${CUDA_PATH}/lib64"
 LIBS="-lOpenCL -lm"
@@ -21,9 +21,10 @@ if [ -f ../lib//libvkfft.a ]; then
     rm -f ../lib/libvkfft.a
 fi
 
-gcc ${FLAGS} ${CPATHS} ${LDPATHS} -c vkFFT.cc ${LIBS} -o vkfft.o
+gcc ${FLAGS} ${CPATHS} ${LDPATHS} -c fft_interface.cc ${LIBS} -o fft_interface.o
 
-if [ -f vkfft.o ]; then
-    ar -rcs libvkfft.a vkfft.o
-    gcc ${FLAGS} ${LDPATHS} vkfft.o ${LIBS} -shared -o libvkfft.so
+if [ -f fft_interface.o ]; then
+    ar -rcs libvkfft.a fft_interface.o
+    gcc ${FLAGS} ${LDPATHS} fft_interface.o ${LIBS} -shared -o libvkfft.so
+    cp libvkfft.* ../lib/.
 fi
