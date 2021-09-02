@@ -1,4 +1,4 @@
-#include "fft_interface.h"
+#include "vkfft.h"
 #include <CL/cl.h>
 #include <stdio.h>
 
