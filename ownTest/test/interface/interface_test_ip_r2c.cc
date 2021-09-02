@@ -20,7 +20,7 @@ int main() {
         printf("Unable to get initial list of platforms\n");
         return VKFFT_ERROR_FAILED_TO_INITIALIZE;
     }
-    cl_platform_id* platforms = (cl_platform_id*) malloc(sizeof(cl_platform_id) * numPlatforms);
+    cl_platform_id* platforms = (cl_platform_id*) calloc(1, sizeof(cl_platform_id) * numPlatforms);
     if (!platforms) return VKFFT_ERROR_MALLOC_FAILED;
     res = clGetPlatformIDs(numPlatforms, platforms, 0);
     if (res != CL_SUCCESS) {
@@ -31,7 +31,7 @@ int main() {
     for (uint64_t j = 0; j < numPlatforms; j++) {
         cl_uint numDevices;
         res = clGetDeviceIDs(platforms[j], CL_DEVICE_TYPE_ALL, 0, 0, &numDevices);
-        cl_device_id* deviceList = (cl_device_id*) malloc(sizeof(cl_device_id) * numDevices);
+        cl_device_id* deviceList = (cl_device_id*) calloc(1, sizeof(cl_device_id) * numDevices);
         if (!deviceList) return VKFFT_ERROR_MALLOC_FAILED;
         res = clGetDeviceIDs(platforms[j], CL_DEVICE_TYPE_ALL, numDevices, deviceList, 0);
         if (res != CL_SUCCESS) {
@@ -95,8 +95,8 @@ int main() {
     size_t inputBufferSize  = sizeof(float)*inputElements;
     size_t outputBufferSize = 2*sizeof(float)*outputElements;
 
-    float* input1  = (float*) malloc(inputBufferSize);
-    float* output1 = (float*) malloc(outputBufferSize);
+    float* input1  = (float*) calloc(1, inputBufferSize);
+    float* output1 = (float*) calloc(1, outputBufferSize);
 
     // Allocate GPU buffers
     printf("Creating buffers...\n");
