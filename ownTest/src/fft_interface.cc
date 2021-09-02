@@ -4,7 +4,7 @@
 // Basic function to return a FFT plan.
 // This flow is similar to other FFT libraries such as FFTW, cuFFT, clFFT, rocFFT.
 interfaceFFTPlan* createFFTPlan(cl_context ctx) {
-    interfaceFFTPlan* plan = (interfaceFFTPlan*)malloc(sizeof(interfaceFFTPlan));
+    interfaceFFTPlan* plan = (interfaceFFTPlan*)calloc(1, sizeof(interfaceFFTPlan));
     // Empty plan
     plan->config  = {};
     plan->app     = {};
