@@ -3,7 +3,7 @@
 
 // Basic function to return a FFT plan.
 // This flow is similar to other FFT libraries such as FFTW, cuFFT, clFFT, rocFFT.
-interfaceFFTPlan* createFFTPlan(cl_context ctx) {
+interfaceFFTPlan* vkfftCreateDefaultFFTPlan(cl_context ctx) {
     interfaceFFTPlan* plan = (interfaceFFTPlan*)calloc(1, sizeof(interfaceFFTPlan));
     // Empty plan
     plan->config  = {};
@@ -70,15 +70,15 @@ interfaceFFTPlan* createFFTPlan(cl_context ctx) {
 
 // A specialized function to return a FFT plan that computes
 // R2C (forward) and C2R (backward) transforms
-interfaceFFTPlan* createR2CFFTPlan(cl_context ctx) {
-    interfaceFFTPlan* plan = createFFTPlan(ctx);
+interfaceFFTPlan* vkfftCreateR2CFFTPlan(cl_context ctx) {
+    interfaceFFTPlan* plan = vkfftCreateDefaultFFTPlan(ctx);
     plan->config.performR2C = 1;
     plan->config.inverseReturnToInputBuffer = 1;
     return plan;
 }
 
 // Interface function to set up the data type for the FFT
-void setFFTPlanDataType(interfaceFFTPlan* plan, int dataType) {
+void vkfftSetFFTPlanDataType(interfaceFFTPlan* plan, int dataType) {
     // Default to float
     // half   = -1
     // float  =  0
@@ -94,11 +94,11 @@ void setFFTPlanDataType(interfaceFFTPlan* plan, int dataType) {
         plan->config.halfPrecision   = false;
         plan->config.doublePrecision = false;
     }
-    setFFTPlanBufferSizes(plan);
+    vkfftSetFFTPlanBufferSizes(plan);
 }
 
 // Interface function to set up the FFT sizes
-void setFFTSize(interfaceFFTPlan* plan, size_t lengths[3]) {
+void vkfftSetFFTPlanSize(interfaceFFTPlan* plan, size_t lengths[3]) {
     plan->config.size[0] = lengths[0];
     plan->config.size[1] = lengths[1];
     plan->config.size[2] = lengths[2];
@@ -153,11 +153,11 @@ void setFFTSize(interfaceFFTPlan* plan, size_t lengths[3]) {
         plan->config.size[1] = lengths[1];
         plan->config.size[2] = lengths[2];
     }
-    setFFTPlanBufferSizes(plan);
+    vkfftSetFFTPlanBufferSizes(plan);
 }
 
 // Function to determine the input and output buffer sizes
-void setFFTPlanBufferSizes(interfaceFFTPlan* plan) {
+void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan) {
     // Input and output buffer sizes if transform is C2C
     plan->inputBufferSize  = plan->config.size[1] * plan->config.size[2];
 
@@ -195,7 +195,7 @@ void setFFTPlanBufferSizes(interfaceFFTPlan* plan) {
 // Interface to initializeVkFFT()
 // Provide this function so that initialization can be checked prior to
 // any execution
-VkFFTResult BakeFFTPlan(interfaceFFTPlan* plan) {
+VkFFTResult vkfftBakeFFTPlan(interfaceFFTPlan* plan) {
     VkFFTResult res;
 #if(__DEBUG__>0)
     printf("Begin initialization...\n");
@@ -212,53 +212,33 @@ VkFFTResult BakeFFTPlan(interfaceFFTPlan* plan) {
     return res;
 }
 
-// Interface function to perform a forward FFT.
+// Interface function to perform a FFT.
 // This function will ensure the plan is initialized prior to execution.
-VkFFTResult executeForwardFFT(interfaceFFTPlan* plan, cl_mem* input, cl_mem* dst) {
+VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, vkfft_transform_dir dir, cl_mem* input, cl_mem* dst) {
     // Set up buffers for input and output so that vkFFT can recognize them
-    plan->lParams.inputBuffer = input;
-    plan->lParams.buffer = dst;
-
-    VkFFTResult res;
-    // Initialize the plan if it is not already initialized
-    if (!plan->isBaked) {
-        res = BakeFFTPlan(plan);
-        if (res != VKFFT_SUCCESS) {
-            return res;
-        }
-    }
-
-    // Plan is guaranteed to be initialized so we launch the execution
-    return VkFFTAppend(&plan->app, -1, &plan->lParams);
-}
-
-// Interface function to perform a backward FFT.
-// This function will ensure the plan is initialized prior to execution.
-VkFFTResult executeBackwardFFT(interfaceFFTPlan* plan, cl_mem* input, cl_mem* dst) {
-    // Set up buffers for input and output so that vkFFT can recognize them
-    if (plan->config.inverseReturnToInputBuffer == 1) {
-        plan->lParams.inputBuffer = dst;
-        plan->lParams.buffer = input;
-    } else {
+    if (dir < 0) {
         plan->lParams.inputBuffer = input;
         plan->lParams.buffer = dst;
+    } else {
+        plan->lParams.inputBuffer = dst;
+        plan->lParams.buffer = input;
     }
-    VkFFTResult res;
 
+    VkFFTResult res;
     // Initialize the plan if it is not already initialized
     if (!plan->isBaked) {
-        res = BakeFFTPlan(plan);
+        res = vkfftBakeFFTPlan(plan);
         if (res != VKFFT_SUCCESS) {
             return res;
         }
     }
 
     // Plan is guaranteed to be initialized so we launch the execution
-    return VkFFTAppend(&plan->app, 1, &plan->lParams);
+    return VkFFTAppend(&plan->app, dir, &plan->lParams);
 }
 
 // Interface function to clean up
-void DestroyFFTPlan(interfaceFFTPlan* plan) {
+void vkfftDestroyFFTPlan(interfaceFFTPlan* plan) {
     deleteVkFFT(&plan->app);
     free(plan);
 }
