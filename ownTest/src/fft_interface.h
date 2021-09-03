@@ -20,19 +20,23 @@ struct interfaceFFTPlan {
     uint64_t              outputBufferSize;
 };
 
+typedef enum vkfft_transform_dir {
+    VKFFT_FORWARD_TRANSFORM    = -1,
+    VKFFT_BACKWARD_TRANSFORM   =  1
+};
+
 typedef struct interfaceFFTPlan interfaceFFTPlan;
 
 // Interface functions for plan creation
-interfaceFFTPlan* createFFTPlan(cl_context ctx);
-interfaceFFTPlan* createR2CFFTPlan(cl_context ctx);
+interfaceFFTPlan* vkfftCreateDefaultFFTPlan(cl_context ctx);
+interfaceFFTPlan* vkfftCreateR2CFFTPlan(cl_context ctx);
 
 // Interface function for modifying the FFT plan details
-void setFFTPlanBufferSizes(interfaceFFTPlan* plan);
-void setFFTPlanDataType(interfaceFFTPlan* plan, int dataType);
-void setFFTSize(interfaceFFTPlan* plan, size_t lengths[3]);
+void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan);
+void vkfftSetFFTPlanDataType(interfaceFFTPlan* plan, int dataType);
+void vkfftSetFFTPlanSize(interfaceFFTPlan* plan, size_t lengths[3]);
 
 // Interface functions to make the library compatible with other conventional FFT libraries
-VkFFTResult BakeFFTPlan(interfaceFFTPlan* plan);
-VkFFTResult executeForwardFFT(interfaceFFTPlan* plan, cl_mem* input, cl_mem* dst);
-VkFFTResult executeBackwardFFT(interfaceFFTPlan* plan, cl_mem* input, cl_mem* dst);
-void DestroyFFTPlan(interfaceFFTPlan* plan);
+VkFFTResult vkfftBakeFFTPlan(interfaceFFTPlan* plan);
+VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, cl_mem* input, cl_mem* dst);
+void vkfftDestroyFFTPlan(interfaceFFTPlan* plan);
