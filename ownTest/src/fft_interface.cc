@@ -50,6 +50,7 @@ interfaceFFTPlan* createFFTPlan(cl_context ctx) {
     // Default to C2C transform and in-place invervse
     plan->config.performR2C = 0;
     plan->config.inverseReturnToInputBuffer = 0;
+    plan->config.normalize = 1;
 
     // Default to out-of-place transform
     plan->config.isInputFormatted = 1;

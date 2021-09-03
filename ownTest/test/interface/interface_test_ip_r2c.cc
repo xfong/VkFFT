@@ -1,6 +1,8 @@
 #include "vkfft_c_interface.h"
 #include <CL/cl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 int main() {
     printf("Starting...\n");
@@ -10,6 +12,9 @@ int main() {
     cl_context        context;
     cl_command_queue  commandQueue;
     uint64_t          device_id = 0; // ID of GPU to target
+    time_t            tm;
+    srand((unsigned)time(&tm));
+//    srand((unsigned) 62458790);
 
     // Setting up GPU OpenCL device
     cl_int res = CL_SUCCESS;
@@ -73,9 +78,9 @@ int main() {
     printf("Creating plan...\n");
     interfaceFFTPlan* plan = createR2CFFTPlan(context);
     size_t lengths[3];
-    lengths[0] = 32;
-    lengths[1] = 8;
-    lengths[2] = 4;
+    lengths[0] = 8;
+    lengths[1] = 4;
+    lengths[2] = 2;
     printf("Setting plan lengths...\n");
     setFFTSize(plan, lengths);
     printf("Baking plan...\n");
@@ -100,40 +105,104 @@ int main() {
 
     // Allocate GPU buffers
     printf("Creating buffers...\n");
-    cl_mem iBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, inputBufferSize, NULL, &res);
+    cl_mem ifBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, inputBufferSize, NULL, &res);
     if (res != CL_SUCCESS) {
         printf("Failed to allocate buffer for input...aborting\n");
         return -1;
     }
-    cl_mem oBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, outputBufferSize, NULL, &res);
+    cl_mem ofBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, outputBufferSize, NULL, &res);
     if (res != CL_SUCCESS) {
         printf("Failed to allocate buffer for output...aborting\n");
+        return -1;
+    }
+    cl_mem ibBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, outputBufferSize, NULL, &res);
+    if (res != CL_SUCCESS) {
+        printf("Failed to allocate buffer for input (iFFT)...aborting\n");
+        return -1;
+    }
+    cl_mem obBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, inputBufferSize, NULL, &res);
+    if (res != CL_SUCCESS) {
+        printf("Failed to allocate buffer for output (iFFT)...aborting\n");
         return -1;
     }
 
     // First data set
     printf("Generating first data set on host side...\n");
+    float tmpFloat = (float)(rand());
     input1[0] = (float)(rand()) / (float)(RAND_MAX);
-    for (uint64_t idx = 0; idx < inputElements; idx++) {
+//    input1[0] = (float)(2534.089);
+    for (uint64_t idx = 1; idx < inputElements; idx++) {
         input1[idx] = (float)(0.0);
     }
+
+#if(__DEBUG__>5)
+    for (uint64_t idx = 0; idx < inputElements; idx++) {
+        printf("  Input[%d] = %e \n", idx, input1[idx]);
+    }
+#endif
 
     printf("Generating first data set (output) on host side...\n");
     for (uint64_t idx = 0; idx < outputElements; idx++) {
         output1[idx] = (float)(0.0);
     }
 
+#if(__DEBUG__>5)
+    for (uint64_t idx = 0; idx < outputElements; idx++) {
+        printf("      Output[%d] = %e \n", idx, output1[idx]);
+    }
+#endif
+
     // Copy CPU data over to GPU
     printf("Transferring first data set to GPU side...\n");
-    res = clEnqueueWriteBuffer(commandQueue, iBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
+    res = clEnqueueWriteBuffer(commandQueue, ifBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
+        DestroyFFTPlan(plan);
         printf("Failed to write into buffer for input...aborting\n");
         return -1;
     }
-    res = clEnqueueWriteBuffer(commandQueue, oBuf, true, 0, outputBufferSize, output1, 0, NULL, NULL);
+    res = clEnqueueWriteBuffer(commandQueue, ofBuf, true, 0, outputBufferSize, output1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to write into buffer for output...aborting\n");
+        DestroyFFTPlan(plan);
         return -1;
+    }
+
+    // Execute FFT
+    res = executeForwardFFT(plan, &ifBuf, &ofBuf);
+    if (res != CL_SUCCESS) {
+        DestroyFFTPlan(plan);
+        printf("Failed to execute forward FFT...\n");
+    }
+
+    // Read results back from buffer and print to screen
+    res = clEnqueueReadBuffer(commandQueue, ofBuf, true, 0, outputBufferSize, output1, 0, NULL, NULL);
+    if (res != CL_SUCCESS) {
+        printf("Failed to read out buffer for output...aborting\n");
+        DestroyFFTPlan(plan);
+        return -1;
+    }
+    printf("\n  Results of forward FFT\n");
+    for (uint64_t idx = 0; idx < outputElements; idx++) {
+        printf("    FFT result [%d]: %15.13e \n", idx, output1[idx]);
+    }
+
+    // Execute iFFT
+    res = executeBackwardFFT(plan, &ofBuf, &obBuf);
+    if (res != CL_SUCCESS) {
+        DestroyFFTPlan(plan);
+        printf("Failed to execute backward FFT...\n");
+    }
+
+    // Read results back from buffer and print to screen
+    res = clEnqueueReadBuffer(commandQueue, obBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
+    if (res != CL_SUCCESS) {
+        printf("Failed to read out buffer for output (iFFT)...aborting\n");
+        DestroyFFTPlan(plan);
+        return -1;
+    }
+    printf("\n    Result of backward FFT\n");
+    for (uint64_t idx = 0; idx < inputElements; idx++) {
+        printf("    iFFT result [%d]: %15.13e \n", idx, input1[idx]);
     }
 
     // Second data set
@@ -150,14 +219,24 @@ int main() {
     // Exiting...
     printf("Exiting...\n");
     DestroyFFTPlan(plan);
-    res = clReleaseMemObject(iBuf);
+    res = clReleaseMemObject(ifBuf);
     if (res != CL_SUCCESS) {
         printf("Failed to release input buffer...aborting\n");
         return -1;
     }
-    res = clReleaseMemObject(oBuf);
+    res = clReleaseMemObject(ofBuf);
     if (res != CL_SUCCESS) {
         printf("Failed to release output buffer...aborting\n");
+        return -1;
+    }
+    res = clReleaseMemObject(ibBuf);
+    if (res != CL_SUCCESS) {
+        printf("Failed to release input (iFFT) buffer...aborting\n");
+        return -1;
+    }
+    res = clReleaseMemObject(obBuf);
+    if (res != CL_SUCCESS) {
+        printf("Failed to release output (iFFT) buffer...aborting\n");
         return -1;
     }
     free(input1);
