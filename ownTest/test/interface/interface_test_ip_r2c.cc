@@ -76,15 +76,15 @@ int main() {
 
     // Create the R2C plan...
     printf("Creating plan...\n");
-    interfaceFFTPlan* plan = createR2CFFTPlan(context);
+    interfaceFFTPlan* plan = vkfftCreateR2CFFTPlan(context);
     size_t lengths[3];
     lengths[0] = 8;
     lengths[1] = 4;
     lengths[2] = 2;
     printf("Setting plan lengths...\n");
-    setFFTSize(plan, lengths);
+    vkfftSetFFTPlanSize(plan, lengths);
     printf("Baking plan...\n");
-    res = BakeFFTPlan(plan);
+    res = vkfftBakeFFTPlan(plan);
     if (res != VKFFT_SUCCESS) {
         printf("Unable to bake plan...abort\n");
         return -1;
@@ -156,21 +156,21 @@ int main() {
     printf("Transferring first data set to GPU side...\n");
     res = clEnqueueWriteBuffer(commandQueue, ifBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
-        DestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(plan);
         printf("Failed to write into buffer for input...aborting\n");
         return -1;
     }
     res = clEnqueueWriteBuffer(commandQueue, ofBuf, true, 0, outputBufferSize, output1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to write into buffer for output...aborting\n");
-        DestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(plan);
         return -1;
     }
 
     // Execute FFT
-    res = executeForwardFFT(plan, &ifBuf, &ofBuf);
+    res = vkfftEnqueueTransform(plan, VKFFT_FORWARD_TRANSFORM, &ifBuf, &ofBuf);
     if (res != CL_SUCCESS) {
-        DestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(plan);
         printf("Failed to execute forward FFT...\n");
     }
 
@@ -178,7 +178,7 @@ int main() {
     res = clEnqueueReadBuffer(commandQueue, ofBuf, true, 0, outputBufferSize, output1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to read out buffer for output...aborting\n");
-        DestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(plan);
         return -1;
     }
     printf("\n  Results of forward FFT\n");
@@ -187,9 +187,9 @@ int main() {
     }
 
     // Execute iFFT
-    res = executeBackwardFFT(plan, &ofBuf, &obBuf);
+    res = vkfftEnqueueTransform(plan, VKFFT_BACKWARD_TRANSFORM, &ofBuf, &obBuf);
     if (res != CL_SUCCESS) {
-        DestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(plan);
         printf("Failed to execute backward FFT...\n");
     }
 
@@ -197,7 +197,7 @@ int main() {
     res = clEnqueueReadBuffer(commandQueue, obBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to read out buffer for output (iFFT)...aborting\n");
-        DestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(plan);
         return -1;
     }
     printf("\n    Result of backward FFT\n");
@@ -218,7 +218,7 @@ int main() {
 
     // Exiting...
     printf("Exiting...\n");
-    DestroyFFTPlan(plan);
+    vkfftDestroyFFTPlan(plan);
     res = clReleaseMemObject(ifBuf);
     if (res != CL_SUCCESS) {
         printf("Failed to release input buffer...aborting\n");
