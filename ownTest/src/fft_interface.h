@@ -3,6 +3,7 @@
 #define __SIZEOF_HALF__   2
 #define __SIZEOF_FLOAT__  4
 #define __SIZEOF_DOUBLE__ 8
+#include <stdbool.h>
 #include "vkFFT.h"
 
 // Use a plan structure
@@ -23,7 +24,7 @@ struct interfaceFFTPlan {
 typedef enum vkfft_transform_dir {
     VKFFT_FORWARD_TRANSFORM    = -1,
     VKFFT_BACKWARD_TRANSFORM   =  1
-};
+} vkfft_transform_dir;
 
 typedef struct interfaceFFTPlan interfaceFFTPlan;
 
@@ -38,5 +39,5 @@ void vkfftSetFFTPlanSize(interfaceFFTPlan* plan, size_t lengths[3]);
 
 // Interface functions to make the library compatible with other conventional FFT libraries
 VkFFTResult vkfftBakeFFTPlan(interfaceFFTPlan* plan);
-VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, cl_mem* input, cl_mem* dst);
+VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, vkfft_transform_dir dir, cl_mem* input, cl_mem* dst);
 void vkfftDestroyFFTPlan(interfaceFFTPlan* plan);
