@@ -6,9 +6,9 @@
 interfaceFFTPlan* vkfftCreateDefaultFFTPlan(cl_context ctx) {
     interfaceFFTPlan* plan = (interfaceFFTPlan*)calloc(1, sizeof(interfaceFFTPlan));
     // Empty plan
-    plan->config  = {};
-    plan->app     = {};
-    plan->lParams = {};
+    plan->config  = (VkFFTConfiguration*)calloc(1, sizeof(VkFFTConfiguration));
+    plan->app     = (VkFFTApplication*)calloc(1, sizeof(VkFFTApplication));
+    plan->lParams = (VkFFTLaunchParams*)calloc(1, sizeof(VkFFTLaunchParams));
 
     cl_int res;
     // Grab required information from context given...
@@ -36,32 +36,32 @@ interfaceFFTPlan* vkfftCreateDefaultFFTPlan(cl_context ctx) {
     }
 
     // Update internal pointers
-    plan->config.platform = &plan->platform;
-    plan->config.context = &plan->context;
-    plan->config.device = &plan->device;
-    plan->lParams.commandQueue = &plan->commandQueue;
+    plan->config->platform = &plan->platform;
+    plan->config->context = &plan->context;
+    plan->config->device = &plan->device;
+    plan->lParams->commandQueue = &plan->commandQueue;
 
     // Default to 3D plan but with all dimensions to be 1
-    plan->config.FFTdim  = 3;
-    plan->config.size[0] = 1;
-    plan->config.size[1] = 1;
-    plan->config.size[2] = 1;
+    plan->config->FFTdim  = 3;
+    plan->config->size[0] = 1;
+    plan->config->size[1] = 1;
+    plan->config->size[2] = 1;
 
     // Default to C2C transform and in-place invervse
-    plan->config.performR2C = 0;
-    plan->config.inverseReturnToInputBuffer = 0;
-    plan->config.normalize = 1;
+    plan->config->performR2C = 0;
+    plan->config->inverseReturnToInputBuffer = 0;
+    plan->config->normalize = 1;
 
     // Default to out-of-place transform
-    plan->config.isInputFormatted = 1;
+    plan->config->isInputFormatted = 1;
 
     // Default to float
     // half   = -1
     // float  =  0
     // double =  1
     plan->dataType = 0;
-    plan->config.halfPrecision = false;
-    plan->config.doublePrecision = false;
+    plan->config->halfPrecision = false;
+    plan->config->doublePrecision = false;
 
     // Initialize flag to ensure plan is baked before execution can happen
     plan->isBaked = false;
@@ -72,8 +72,8 @@ interfaceFFTPlan* vkfftCreateDefaultFFTPlan(cl_context ctx) {
 // R2C (forward) and C2R (backward) transforms
 interfaceFFTPlan* vkfftCreateR2CFFTPlan(cl_context ctx) {
     interfaceFFTPlan* plan = vkfftCreateDefaultFFTPlan(ctx);
-    plan->config.performR2C = 1;
-    plan->config.inverseReturnToInputBuffer = 1;
+    plan->config->performR2C = 1;
+    plan->config->inverseReturnToInputBuffer = 1;
     return plan;
 }
 
@@ -85,23 +85,23 @@ void vkfftSetFFTPlanDataType(interfaceFFTPlan* plan, int dataType) {
     // double =  1
     plan->dataType = dataType;
     if (dataType < 0) {
-        plan->config.halfPrecision   = true;
-        plan->config.doublePrecision = false;
+        plan->config->halfPrecision   = true;
+        plan->config->doublePrecision = false;
     } else if (dataType > 0) {
-        plan->config.halfPrecision   = false;
-        plan->config.doublePrecision = true;
+        plan->config->halfPrecision   = false;
+        plan->config->doublePrecision = true;
     } else {
-        plan->config.halfPrecision   = false;
-        plan->config.doublePrecision = false;
+        plan->config->halfPrecision   = false;
+        plan->config->doublePrecision = false;
     }
     vkfftSetFFTPlanBufferSizes(plan);
 }
 
 // Interface function to set up the FFT sizes
 void vkfftSetFFTPlanSize(interfaceFFTPlan* plan, size_t lengths[3]) {
-    plan->config.size[0] = lengths[0];
-    plan->config.size[1] = lengths[1];
-    plan->config.size[2] = lengths[2];
+    plan->config->size[0] = lengths[0];
+    plan->config->size[1] = lengths[1];
+    plan->config->size[2] = lengths[2];
     // If the plan was previously baked, we need to clean up the plan
     if (plan->isBaked) {
         plan->app = {};
@@ -111,47 +111,47 @@ void vkfftSetFFTPlanSize(interfaceFFTPlan* plan, size_t lengths[3]) {
     ////// Order the lengths of the FFT so it can be "fast"
 
     // Default to 3D first but set all sizes to 1
-    plan->config.FFTdim = 3;
-    plan->config.size[0] = 1;
-    plan->config.size[1] = 1;
-    plan->config.size[2] = 1;
+    plan->config->FFTdim = 3;
+    plan->config->size[0] = 1;
+    plan->config->size[1] = 1;
+    plan->config->size[2] = 1;
 
     // Find out the desired dimensionality of the FFT
-    if (lengths[0] == 1) { plan->config.FFTdim--; }
-    if (lengths[1] == 1) { plan->config.FFTdim--; }
-    if (lengths[2] == 1) { plan->config.FFTdim--; }
+    if (lengths[0] == 1) { plan->config->FFTdim--; }
+    if (lengths[1] == 1) { plan->config->FFTdim--; }
+    if (lengths[2] == 1) { plan->config->FFTdim--; }
 
     // Catch when all entries of lengths[] is 1
-    if (plan->config.FFTdim == 0) {
-        plan->config.FFTdim = 1; // the FFT has all lengths to be 1
-    } else if (plan->config.FFTdim == 1) { // Case where FFT is 1D
+    if (plan->config->FFTdim == 0) {
+        plan->config->FFTdim = 1; // the FFT has all lengths to be 1
+    } else if (plan->config->FFTdim == 1) { // Case where FFT is 1D
         // Find the entry of lengths[] that is not 1 and assign to
         // config.size[0] (the other entries default to 1 from before)
         if (lengths[0] != 1) {
-            plan->config.size[0] = lengths[0];
+            plan->config->size[0] = lengths[0];
         } else if (lengths[1] != 1) {
-            plan->config.size[0] = lengths[1];
+            plan->config->size[0] = lengths[1];
         } else {
-            plan->config.size[0] = lengths[2];
+            plan->config->size[0] = lengths[2];
         }
-    } else if (plan->config.FFTdim == 2) { // Case where FFT is 2D
+    } else if (plan->config->FFTdim == 2) { // Case where FFT is 2D
         // Find the entry of lengths[] that is 1 and assign to remaining
         // to config.size[0] and config.size[1] (the remaining entry
         // default to 1 from before)
         if (lengths[0] == 1) {
-            plan->config.size[0] = lengths[1];
-            plan->config.size[1] = lengths[2];
+            plan->config->size[0] = lengths[1];
+            plan->config->size[1] = lengths[2];
         } else if (lengths[1] == 1) {
-            plan->config.size[0] = lengths[0];
-            plan->config.size[1] = lengths[2];
+            plan->config->size[0] = lengths[0];
+            plan->config->size[1] = lengths[2];
         } else {
-            plan->config.size[0] = lengths[0];
-            plan->config.size[1] = lengths[1];
+            plan->config->size[0] = lengths[0];
+            plan->config->size[1] = lengths[1];
         }
     } else { // Case where FFT is 3D
-        plan->config.size[0] = lengths[0];
-        plan->config.size[1] = lengths[1];
-        plan->config.size[2] = lengths[2];
+        plan->config->size[0] = lengths[0];
+        plan->config->size[1] = lengths[1];
+        plan->config->size[2] = lengths[2];
     }
     vkfftSetFFTPlanBufferSizes(plan);
 }
@@ -159,7 +159,7 @@ void vkfftSetFFTPlanSize(interfaceFFTPlan* plan, size_t lengths[3]) {
 // Function to determine the input and output buffer sizes
 void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan) {
     // Input and output buffer sizes if transform is C2C
-    plan->inputBufferSize  = plan->config.size[1] * plan->config.size[2];
+    plan->inputBufferSize  = plan->config->size[1] * plan->config->size[2];
 
     if (plan->dataType < 0) {
         plan->inputBufferSize  *= __SIZEOF_HALF__;
@@ -173,23 +173,23 @@ void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan) {
 
     // If plan is already defined as R2C, then we can set the input and output buffer sizes
     // as well as the strides
-    if (plan->config.performR2C == 1) {
-        plan->inputBufferSize  *= plan->config.size[0];
-        plan->outputBufferSize *= 2 * (plan->config.size[0] / 2 + 1);
+    if (plan->config->performR2C == 1) {
+        plan->inputBufferSize  *= plan->config->size[0];
+        plan->outputBufferSize *= 2 * (plan->config->size[0] / 2 + 1);
     } else { // Otherwise, plan is C2C
-        plan->inputBufferSize  *= 2 * plan->config.size[0];
+        plan->inputBufferSize  *= 2 * plan->config->size[0];
         plan->outputBufferSize  = plan->inputBufferSize;
     }
 
     // Update plan
-    plan->config.inputBufferSize       = &plan->inputBufferSize;
-    plan->config.inputBufferStride[0]  = 1;
-    plan->config.inputBufferStride[1]  = plan->config.size[0];
-    plan->config.inputBufferStride[2]  = plan->config.inputBufferStride[1]*plan->config.size[1];
-    plan->config.bufferSize            = &plan->outputBufferSize;
-    plan->config.outputBufferStride[0] = 1;
-    plan->config.outputBufferStride[1] = plan->config.size[0] / 2 + 1;
-    plan->config.outputBufferStride[2] = plan->config.outputBufferStride[1]*plan->config.size[1];
+    plan->config->inputBufferSize       = &plan->inputBufferSize;
+    plan->config->inputBufferStride[0]  = 1;
+    plan->config->inputBufferStride[1]  = plan->config->size[0];
+    plan->config->inputBufferStride[2]  = plan->config->inputBufferStride[1]*plan->config->size[1];
+    plan->config->bufferSize            = &plan->outputBufferSize;
+    plan->config->outputBufferStride[0] = 1;
+    plan->config->outputBufferStride[1] = plan->config->size[0] / 2 + 1;
+    plan->config->outputBufferStride[2] = plan->config->outputBufferStride[1]*plan->config->size[1];
 }
 
 // Interface to initializeVkFFT()
@@ -200,7 +200,13 @@ VkFFTResult vkfftBakeFFTPlan(interfaceFFTPlan* plan) {
 #if(__DEBUG__>0)
     printf("Begin initialization...\n");
 #endif
-    res = initializeVkFFT(&plan->app, plan->config);
+    // If the plan was baked previously, the previous plan needs to be deleted
+    if ((plan->app != NULL) && (plan->isBaked)) {
+        deleteVkFFT(plan->app);
+        plan->app = (VkFFTApplication*)calloc(1,sizeof(VkFFTApplication));
+    }
+    VkFFTConfiguration tmpConfig = *plan->config;
+    res = initializeVkFFT(plan->app, tmpConfig);
 #if(__DEBUG__>0)
     printf("    Done with initialization...\n");
 #endif
@@ -217,11 +223,11 @@ VkFFTResult vkfftBakeFFTPlan(interfaceFFTPlan* plan) {
 VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, vkfft_transform_dir dir, cl_mem* input, cl_mem* dst) {
     // Set up buffers for input and output so that vkFFT can recognize them
     if (dir < 0) {
-        plan->lParams.inputBuffer = input;
-        plan->lParams.buffer = dst;
+        plan->lParams->inputBuffer = input;
+        plan->lParams->buffer = dst;
     } else {
-        plan->lParams.inputBuffer = dst;
-        plan->lParams.buffer = input;
+        plan->lParams->inputBuffer = dst;
+        plan->lParams->buffer = input;
     }
 
     VkFFTResult res;
@@ -234,11 +240,11 @@ VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, vkfft_transform_dir di
     }
 
     // Plan is guaranteed to be initialized so we launch the execution
-    return VkFFTAppend(&plan->app, dir, &plan->lParams);
+    return VkFFTAppend(plan->app, dir, plan->lParams);
 }
 
 // Interface function to clean up
 void vkfftDestroyFFTPlan(interfaceFFTPlan* plan) {
-    deleteVkFFT(&plan->app);
+    deleteVkFFT(plan->app);
     free(plan);
 }
