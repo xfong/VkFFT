@@ -246,5 +246,7 @@ VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, vkfft_transform_dir di
 // Interface function to clean up
 void vkfftDestroyFFTPlan(interfaceFFTPlan* plan) {
     deleteVkFFT(plan->app);
+    free(plan->config);
+    free(plan->lParams);
     free(plan);
 }
