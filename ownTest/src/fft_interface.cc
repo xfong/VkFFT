@@ -184,13 +184,13 @@ void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan) {
 
     // Update plan
     plan->config->inputBufferSize       = &plan->inputBufferSize;
-    plan->config->inputBufferStride[0]  = 1;
-    plan->config->inputBufferStride[1]  = plan->config->size[0];
-    plan->config->inputBufferStride[2]  = plan->config->inputBufferStride[1]*plan->config->size[1];
+    plan->config->inputBufferStride[0]  = plan->config->size[0];
+    plan->config->inputBufferStride[1]  = plan->config->size[0]*plan->config->size[1];
+    plan->config->inputBufferStride[2]  = plan->config->size[0]*plan->config->size[1]*plan->config->size[2];
     plan->config->bufferSize            = &plan->outputBufferSize;
-    plan->config->bufferStride[0]       = 1;
-    plan->config->bufferStride[1]       = plan->config->size[0] / 2 + 1;
-    plan->config->bufferStride[2]       = plan->config->outputBufferStride[1]*plan->config->size[1];
+//    plan->config->bufferStride[0]       = 1;
+//    plan->config->bufferStride[1]       = plan->config->size[0] / 2 + 1;
+//    plan->config->bufferStride[2]       = plan->config->outputBufferStride[1]*plan->config->size[1];
 }
 
 // Interface to initializeVkFFT()
