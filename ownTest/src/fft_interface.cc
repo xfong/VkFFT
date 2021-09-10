@@ -104,7 +104,8 @@ void vkfftSetFFTPlanSize(interfaceFFTPlan* plan, size_t lengths[3]) {
     plan->config->size[2] = lengths[2];
     // If the plan was previously baked, we need to clean up the plan
     if (plan->isBaked) {
-        plan->app = {};
+        deleteVkFFT(plan->app);
+        plan->app = (VkFFTApplication*)calloc(1,sizeof(VkFFTApplication));
     }
     plan->isBaked = false;
 
@@ -187,9 +188,9 @@ void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan) {
     plan->config->inputBufferStride[1]  = plan->config->size[0];
     plan->config->inputBufferStride[2]  = plan->config->inputBufferStride[1]*plan->config->size[1];
     plan->config->bufferSize            = &plan->outputBufferSize;
-    plan->config->outputBufferStride[0] = 1;
-    plan->config->outputBufferStride[1] = plan->config->size[0] / 2 + 1;
-    plan->config->outputBufferStride[2] = plan->config->outputBufferStride[1]*plan->config->size[1];
+    plan->config->bufferStride[0]       = 1;
+    plan->config->bufferStride[1]       = plan->config->size[0] / 2 + 1;
+    plan->config->bufferStride[2]       = plan->config->outputBufferStride[1]*plan->config->size[1];
 }
 
 // Interface to initializeVkFFT()
@@ -250,3 +251,5 @@ void vkfftDestroyFFTPlan(interfaceFFTPlan* plan) {
     free(plan->lParams);
     free(plan);
 }
+
+
