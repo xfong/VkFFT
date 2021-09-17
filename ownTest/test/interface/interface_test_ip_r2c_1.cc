@@ -139,12 +139,12 @@ int main() {
 #endif
 
     printf("Generating first data set (output) on host side...\n");
-    for (uint64_t idx = 0; idx < outputElements; idx++) {
+    for (uint64_t idx = 0; idx < 2*outputElements; idx++) {
         output1[idx] = (float)(0.0);
     }
 
 #if(__DEBUG__>5)
-    for (uint64_t idx = 0; idx < outputElements; idx++) {
+    for (uint64_t idx = 0; idx < 2*outputElements; idx++) {
         printf("      Output[%d] = %e \n", idx, output1[idx]);
     }
 #endif
@@ -184,12 +184,25 @@ int main() {
         vkfftDestroyFFTPlan(plan);
         return -1;
     }
+    res = clFinish(commandQueue);
+    if (res != CL_SUCCESS) {
+        printf("Failed to wait for queue to clear...aborting\n");
+        vkfftDestroyFFTPlan(plan);
+        return -1;
+    }
     printf("\n  Results of forward FFT\n");
-    for (uint64_t idx = 0; idx < outputElements; idx++) {
+    for (uint64_t idx = 0; idx < 2*outputElements; idx++) {
         printf("    FFT result [%d]: %15.13e \n", idx, output1[idx]);
     }
 
     // Execute iFFT
+    // Read results back from buffer and print to screen
+    res = clFinish(commandQueue);
+    if (res != CL_SUCCESS) {
+        printf("Failed to wait for queue to clear...aborting\n");
+        vkfftDestroyFFTPlan(plan);
+        return -1;
+    }
     res = vkfftEnqueueTransform(plan, VKFFT_BACKWARD_TRANSFORM, &ofBuf, &obBuf);
     if (res != CL_SUCCESS) {
         vkfftDestroyFFTPlan(plan);
@@ -209,6 +222,12 @@ int main() {
         vkfftDestroyFFTPlan(plan);
         return -1;
     }
+    res = clFinish(commandQueue);
+    if (res != CL_SUCCESS) {
+        printf("Failed to wait for queue to clear...aborting\n");
+        vkfftDestroyFFTPlan(plan);
+        return -1;
+    }
     printf("\n    Result of backward FFT\n");
     for (uint64_t idx = 0; idx < inputElements; idx++) {
         printf("    iFFT result [%d]: %15.13e \n", idx, input1[idx]);
@@ -221,7 +240,7 @@ int main() {
     }
 
     printf("Generating second data set (output) on host side...\n");
-    for (uint64_t idx = 0; idx < outputElements; idx++) {
+    for (uint64_t idx = 0; idx < 2*outputElements; idx++) {
         output1[idx] = (float) rand() / (float)(RAND_MAX);
     }
 
@@ -241,6 +260,13 @@ int main() {
     }
 
     // Execute FFT
+    // Read results back from buffer and print to screen
+    res = clFinish(commandQueue);
+    if (res != CL_SUCCESS) {
+        printf("Failed to wait for queue to clear...aborting\n");
+        vkfftDestroyFFTPlan(plan);
+        return -1;
+    }
     res = vkfftEnqueueTransform(plan, VKFFT_FORWARD_TRANSFORM, &ifBuf, &ofBuf);
     if (res != CL_SUCCESS) {
         vkfftDestroyFFTPlan(plan);
@@ -261,11 +287,18 @@ int main() {
         return -1;
     }
     printf("\n  Results of forward FFT\n");
-    for (uint64_t idx = 0; idx < outputElements; idx++) {
+    for (uint64_t idx = 0; idx < 2*outputElements; idx++) {
         printf("    FFT result [%d]: %15.13e \n", idx, output1[idx]);
     }
 
     // Execute iFFT
+    // Read results back from buffer and print to screen
+    res = clFinish(commandQueue);
+    if (res != CL_SUCCESS) {
+        printf("Failed to wait for queue to clear...aborting\n");
+        vkfftDestroyFFTPlan(plan);
+        return -1;
+    }
     res = vkfftEnqueueTransform(plan, VKFFT_BACKWARD_TRANSFORM, &ofBuf, &obBuf);
     if (res != CL_SUCCESS) {
         vkfftDestroyFFTPlan(plan);
@@ -282,6 +315,12 @@ int main() {
     res = clEnqueueReadBuffer(commandQueue, obBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to read out buffer for output (iFFT)...aborting\n");
+        vkfftDestroyFFTPlan(plan);
+        return -1;
+    }
+    res = clFinish(commandQueue);
+    if (res != CL_SUCCESS) {
+        printf("Failed to wait for queue to clear...aborting\n");
         vkfftDestroyFFTPlan(plan);
         return -1;
     }
