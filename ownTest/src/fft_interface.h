@@ -6,6 +6,11 @@
 #include <stdbool.h>
 #include "vkFFT.h"
 
+typedef enum vkfft_transform_dir {
+    VKFFT_FORWARD_TRANSFORM    = -1,
+    VKFFT_BACKWARD_TRANSFORM   =  1
+} vkfft_transform_dir;
+
 // Use a plan structure
 struct interfaceFFTPlan {
     VkFFTConfiguration*   config;
@@ -19,18 +24,15 @@ struct interfaceFFTPlan {
     int                   dataType;
     uint64_t              inputBufferSize;
     uint64_t              outputBufferSize;
+    vkfft_transform_dir   dir;
 };
-
-typedef enum vkfft_transform_dir {
-    VKFFT_FORWARD_TRANSFORM    = -1,
-    VKFFT_BACKWARD_TRANSFORM   =  1
-} vkfft_transform_dir;
 
 typedef struct interfaceFFTPlan interfaceFFTPlan;
 
 // Interface functions for plan creation
 interfaceFFTPlan* vkfftCreateDefaultFFTPlan(cl_context ctx);
 interfaceFFTPlan* vkfftCreateR2CFFTPlan(cl_context ctx);
+interfaceFFTPlan* vkfftCreateC2RFFTPlan(cl_context ctx);
 
 // Interface function for modifying the FFT plan details
 void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan);
@@ -39,5 +41,5 @@ void vkfftSetFFTPlanSize(interfaceFFTPlan* plan, size_t lengths[3]);
 
 // Interface functions to make the library compatible with other conventional FFT libraries
 VkFFTResult vkfftBakeFFTPlan(interfaceFFTPlan* plan);
-VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, vkfft_transform_dir dir, cl_mem* input, cl_mem* dst);
+VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, cl_mem* input, cl_mem* dst);
 void vkfftDestroyFFTPlan(interfaceFFTPlan* plan);

@@ -76,17 +76,29 @@ int main() {
 
     // Create the R2C plan...
     printf("Creating plan...\n");
-    interfaceFFTPlan* plan = vkfftCreateR2CFFTPlan(context);
+    interfaceFFTPlan* r2c_plan = vkfftCreateR2CFFTPlan(context);
     size_t lengths[3];
     lengths[0] = 8;
     lengths[1] = 4;
     lengths[2] = 2;
-    printf("Setting plan lengths...\n");
-    vkfftSetFFTPlanSize(plan, lengths);
-    printf("Baking plan...\n");
-    res = vkfftBakeFFTPlan(plan);
+    printf("Setting R2C plan lengths...\n");
+    vkfftSetFFTPlanSize(r2c_plan, lengths);
+    printf("Baking R2C plan...\n");
+    res = vkfftBakeFFTPlan(r2c_plan);
     if (res != VKFFT_SUCCESS) {
-        printf("Unable to bake plan...abort\n");
+        printf("Unable to bake R2C plan...abort\n");
+        vkfftDestroyFFTPlan(r2c_plan);
+        return -1;
+    }
+    interfaceFFTPlan* c2r_plan = vkfftCreateC2RFFTPlan(context);
+    printf("Setting C2R plan lengths...\n");
+    vkfftSetFFTPlanSize(c2r_plan, lengths);
+    printf("Baking C2R plan...\n");
+    res = vkfftBakeFFTPlan(c2r_plan);
+    if (res != VKFFT_SUCCESS) {
+        printf("Unable to bake C2R plan...abort\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
         return -1;
     }
 
@@ -108,21 +120,35 @@ int main() {
     cl_mem ifBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, inputBufferSize, NULL, &res);
     if (res != CL_SUCCESS) {
         printf("Failed to allocate buffer for input...aborting\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
         return -1;
     }
     cl_mem ofBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, outputBufferSize, NULL, &res);
     if (res != CL_SUCCESS) {
         printf("Failed to allocate buffer for output...aborting\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
         return -1;
     }
     cl_mem ibBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, outputBufferSize, NULL, &res);
     if (res != CL_SUCCESS) {
         printf("Failed to allocate buffer for input (iFFT)...aborting\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
         return -1;
     }
     cl_mem obBuf = clCreateBuffer(context, CL_MEM_READ_WRITE, inputBufferSize, NULL, &res);
     if (res != CL_SUCCESS) {
         printf("Failed to allocate buffer for output (iFFT)...aborting\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
         return -1;
     }
 
@@ -156,35 +182,61 @@ int main() {
     printf("Transferring first data set to GPU side...\n");
     res = clEnqueueWriteBuffer(commandQueue, ifBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
-        vkfftDestroyFFTPlan(plan);
         printf("Failed to write into buffer for input...aborting\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     res = clEnqueueWriteBuffer(commandQueue, ofBuf, true, 0, outputBufferSize, output1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to write into buffer for output...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
 
     // Execute FFT
-    res = vkfftEnqueueTransform(plan, VKFFT_FORWARD_TRANSFORM, &ifBuf, &ofBuf);
+    res = vkfftEnqueueTransform(r2c_plan, &ifBuf, &ofBuf);
     if (res != CL_SUCCESS) {
-        vkfftDestroyFFTPlan(plan);
-        printf("Failed to execute forward FFT...\n");
+        printf("Failed to execute first forward FFT...: %d \n", res);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
+        return -1;
     }
 
     // Read results back from buffer and print to screen
     res = clFinish(commandQueue);
     if (res != CL_SUCCESS) {
         printf("Failed to wait for queue to clear...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     res = clEnqueueReadBuffer(commandQueue, ofBuf, true, 0, outputBufferSize, output1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to read out buffer for output...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     printf("\n  Results of forward FFT\n");
@@ -193,23 +245,39 @@ int main() {
     }
 
     // Execute iFFT
-    res = vkfftEnqueueTransform(plan, VKFFT_BACKWARD_TRANSFORM, &ofBuf, &obBuf);
+    res = vkfftEnqueueTransform(c2r_plan, &ofBuf, &obBuf);
     if (res != CL_SUCCESS) {
-        vkfftDestroyFFTPlan(plan);
-        printf("Failed to execute backward FFT...\n");
+        printf("Failed to execute first backward FFT...\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
+        return -1;
     }
 
     // Read results back from buffer and print to screen
     res = clFinish(commandQueue);
     if (res != CL_SUCCESS) {
         printf("Failed to wait for queue to clear...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     res = clEnqueueReadBuffer(commandQueue, obBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to read out buffer for output (iFFT)...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     printf("\n    Result of backward FFT\n");
@@ -232,35 +300,61 @@ int main() {
     printf("Transferring first data set to GPU side...\n");
     res = clEnqueueWriteBuffer(commandQueue, ifBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
-        vkfftDestroyFFTPlan(plan);
         printf("Failed to write into buffer for input...aborting\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     res = clEnqueueWriteBuffer(commandQueue, ofBuf, true, 0, outputBufferSize, output1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to write into buffer for output...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
 
     // Execute FFT
-    res = vkfftEnqueueTransform(plan, VKFFT_FORWARD_TRANSFORM, &ifBuf, &ofBuf);
+    res = vkfftEnqueueTransform(r2c_plan, &ifBuf, &ofBuf);
     if (res != CL_SUCCESS) {
-        vkfftDestroyFFTPlan(plan);
-        printf("Failed to execute forward FFT...\n");
+        printf("Failed to execute second forward FFT...\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
+	return -1;
     }
 
     // Read results back from buffer and print to screen
     res = clFinish(commandQueue);
     if (res != CL_SUCCESS) {
         printf("Failed to wait for queue to clear...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     res = clEnqueueReadBuffer(commandQueue, ofBuf, true, 0, outputBufferSize, output1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to read out buffer for output...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     printf("\n  Results of forward FFT\n");
@@ -269,23 +363,39 @@ int main() {
     }
 
     // Execute iFFT
-    res = vkfftEnqueueTransform(plan, VKFFT_BACKWARD_TRANSFORM, &ofBuf, &obBuf);
+    res = vkfftEnqueueTransform(c2r_plan, &ofBuf, &obBuf);
     if (res != CL_SUCCESS) {
-        vkfftDestroyFFTPlan(plan);
-        printf("Failed to execute backward FFT...\n");
+        printf("Failed to execute second backward FFT...\n");
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
+	return -1;
     }
 
     // Read results back from buffer and print to screen
     res = clFinish(commandQueue);
     if (res != CL_SUCCESS) {
         printf("Failed to wait for queue to clear...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     res = clEnqueueReadBuffer(commandQueue, obBuf, true, 0, inputBufferSize, input1, 0, NULL, NULL);
     if (res != CL_SUCCESS) {
         printf("Failed to read out buffer for output (iFFT)...aborting\n");
-        vkfftDestroyFFTPlan(plan);
+        vkfftDestroyFFTPlan(c2r_plan);
+        vkfftDestroyFFTPlan(r2c_plan);
+        res = clReleaseMemObject(ifBuf);
+        res = clReleaseMemObject(ofBuf);
+        res = clReleaseMemObject(ibBuf);
+        res = clReleaseMemObject(obBuf);
         return -1;
     }
     printf("\n    Result of backward FFT\n");
@@ -295,7 +405,8 @@ int main() {
 
     // Exiting...
     printf("Exiting...\n");
-    vkfftDestroyFFTPlan(plan);
+    vkfftDestroyFFTPlan(r2c_plan);
+    vkfftDestroyFFTPlan(c2r_plan);
     res = clReleaseMemObject(ifBuf);
     if (res != CL_SUCCESS) {
         printf("Failed to release input buffer...aborting\n");

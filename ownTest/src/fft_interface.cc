@@ -54,6 +54,7 @@ interfaceFFTPlan* vkfftCreateDefaultFFTPlan(cl_context ctx) {
 
     // Default to out-of-place transform
     plan->config->isInputFormatted = 1;
+    plan->config->isOutputFormatted = 1;
 
     // Default to float
     // half   = -1
@@ -69,11 +70,32 @@ interfaceFFTPlan* vkfftCreateDefaultFFTPlan(cl_context ctx) {
 }
 
 // A specialized function to return a FFT plan that computes
-// R2C (forward) and C2R (backward) transforms
+// R2C (forward) transforms
 interfaceFFTPlan* vkfftCreateR2CFFTPlan(cl_context ctx) {
     interfaceFFTPlan* plan = vkfftCreateDefaultFFTPlan(ctx);
     plan->config->performR2C = 1;
-    plan->config->inverseReturnToInputBuffer = 1;
+    plan->config->inverseReturnToInputBuffer = 0;
+    plan->config->inputBufferNum = 1;
+    plan->config->bufferNum = 1;
+    plan->config->outputBufferNum = 1;
+    plan->config->makeForwardPlanOnly = 1;
+    plan->config->makeInversePlanOnly = 0;
+    plan->dir = VKFFT_FORWARD_TRANSFORM;
+    return plan;
+}
+
+// A specialized function to return a FFT plan that computes
+// C2R (backward) transforms
+interfaceFFTPlan* vkfftCreateC2RFFTPlan(cl_context ctx) {
+    interfaceFFTPlan* plan = vkfftCreateDefaultFFTPlan(ctx);
+    plan->config->performR2C = 1;
+    plan->config->inverseReturnToInputBuffer = 0;
+    plan->config->inputBufferNum = 1;
+    plan->config->bufferNum = 1;
+    plan->config->outputBufferNum = 1;
+    plan->config->makeForwardPlanOnly = 0;
+    plan->config->makeInversePlanOnly = 1;
+    plan->dir = VKFFT_BACKWARD_TRANSFORM;
     return plan;
 }
 
@@ -175,22 +197,46 @@ void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan) {
     // If plan is already defined as R2C, then we can set the input and output buffer sizes
     // as well as the strides
     if (plan->config->performR2C == 1) {
-        plan->inputBufferSize  *= plan->config->size[0];
-        plan->outputBufferSize *= 2 * (plan->config->size[0] / 2 + 1);
+    	if ((plan->config->makeForwardPlanOnly == 0) && (plan->config->makeInversePlanOnly == 1)) {
+        	plan->inputBufferSize  *= 2 * (plan->config->size[0] / 2 + 1);
+	        plan->outputBufferSize *= plan->config->size[0];
+        } else {
+	        plan->inputBufferSize  *= plan->config->size[0];
+        	plan->outputBufferSize *= 2 * (plan->config->size[0] / 2 + 1);
+        }
     } else { // Otherwise, plan is C2C
         plan->inputBufferSize  *= 2 * plan->config->size[0];
         plan->outputBufferSize  = plan->inputBufferSize;
     }
 
     // Update plan
-    plan->config->inputBufferSize       = &plan->inputBufferSize;
-    plan->config->inputBufferStride[0]  = plan->config->size[0];
-    plan->config->inputBufferStride[1]  = plan->config->size[0]*plan->config->size[1];
-    plan->config->inputBufferStride[2]  = plan->config->size[0]*plan->config->size[1]*plan->config->size[2];
-    plan->config->bufferSize            = &plan->outputBufferSize;
-    plan->config->bufferStride[0]       = plan->config->size[0] / 2 + 1;
-    plan->config->bufferStride[1]       = plan->config->bufferStride[0]*plan->config->size[1];
-    plan->config->bufferStride[2]       = plan->config->bufferStride[1]*plan->config->size[2];
+    if (plan->dir < 0) {
+        plan->config->inputBufferSize       = &plan->inputBufferSize;
+        plan->config->inputBufferStride[0]  = plan->config->size[0];
+        plan->config->inputBufferStride[1]  = plan->config->size[0]*plan->config->size[1];
+        plan->config->inputBufferStride[2]  = plan->config->size[0]*plan->config->size[1]*plan->config->size[2];
+        plan->config->bufferSize            = &plan->inputBufferSize;
+        plan->config->bufferStride[0]       = plan->config->inputBufferStride[0];
+        plan->config->bufferStride[1]       = plan->config->inputBufferStride[1];
+        plan->config->bufferStride[2]       = plan->config->inputBufferStride[2];
+        plan->config->outputBufferSize      = &plan->outputBufferSize;
+        plan->config->outputBufferStride[0] = plan->config->size[0] / 2 + 1;
+        plan->config->outputBufferStride[1] = plan->config->bufferStride[0]*plan->config->size[1];
+        plan->config->outputBufferStride[2] = plan->config->bufferStride[1]*plan->config->size[2];
+    } else {
+        plan->config->inputBufferSize       = &plan->inputBufferSize;
+        plan->config->inputBufferStride[0]  = plan->config->size[0] / 2 + 1;
+        plan->config->inputBufferStride[1]  = plan->config->bufferStride[0]*plan->config->size[1];
+        plan->config->inputBufferStride[2]  = plan->config->bufferStride[1]*plan->config->size[2];
+        plan->config->bufferSize            = &plan->inputBufferSize;
+        plan->config->bufferStride[0]       = plan->config->inputBufferStride[0];
+        plan->config->bufferStride[1]       = plan->config->inputBufferStride[1];
+        plan->config->bufferStride[2]       = plan->config->inputBufferStride[2];
+        plan->config->outputBufferSize      = &plan->outputBufferSize;
+        plan->config->outputBufferStride[0] = plan->config->size[0];
+        plan->config->outputBufferStride[1] = plan->config->size[0]*plan->config->size[1];
+        plan->config->outputBufferStride[2] = plan->config->size[0]*plan->config->size[1]*plan->config->size[2];
+    }
 }
 
 // Interface to initializeVkFFT()
@@ -221,15 +267,20 @@ VkFFTResult vkfftBakeFFTPlan(interfaceFFTPlan* plan) {
 
 // Interface function to perform a FFT.
 // This function will ensure the plan is initialized prior to execution.
-VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, vkfft_transform_dir dir, cl_mem* input, cl_mem* dst) {
+VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, cl_mem* input, cl_mem* dst) {
     // Set up buffers for input and output so that vkFFT can recognize them
-    if (dir < 0) {
+/*
+    if (plan->dir < 0) {
         plan->lParams->inputBuffer = input;
-        plan->lParams->buffer = dst;
+        plan->lParams->buffer = input;
     } else {
         plan->lParams->inputBuffer = dst;
         plan->lParams->buffer = input;
     }
+*/
+    plan->lParams->inputBuffer = input;
+    plan->lParams->buffer = input;
+    plan->lParams->outputBuffer = dst;
 
     VkFFTResult res;
     // Initialize the plan if it is not already initialized
@@ -241,7 +292,7 @@ VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, vkfft_transform_dir di
     }
 
     // Plan is guaranteed to be initialized so we launch the execution
-    return VkFFTAppend(plan->app, dir, plan->lParams);
+    return VkFFTAppend(plan->app, plan->dir, plan->lParams);
 }
 
 // Interface function to clean up
