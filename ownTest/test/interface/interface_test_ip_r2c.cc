@@ -90,6 +90,7 @@ int main() {
         vkfftDestroyFFTPlan(r2c_plan);
         return -1;
     }
+
     interfaceFFTPlan* c2r_plan = vkfftCreateC2RFFTPlan(context);
     printf("Setting C2R plan lengths...\n");
     vkfftSetFFTPlanSize(c2r_plan, lengths);
@@ -102,7 +103,7 @@ int main() {
         return -1;
     }
 
-    // Create date for testing...
+    // Create data for testing...
     printf("    Begin testing...\n");
 
     // Allocate memory

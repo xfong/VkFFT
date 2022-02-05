@@ -215,10 +215,10 @@ void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan) {
         plan->config->inputBufferStride[0]  = plan->config->size[0];
         plan->config->inputBufferStride[1]  = plan->config->size[0]*plan->config->size[1];
         plan->config->inputBufferStride[2]  = plan->config->size[0]*plan->config->size[1]*plan->config->size[2];
-        plan->config->bufferSize            = &plan->inputBufferSize;
-        plan->config->bufferStride[0]       = plan->config->inputBufferStride[0];
-        plan->config->bufferStride[1]       = plan->config->inputBufferStride[1];
-        plan->config->bufferStride[2]       = plan->config->inputBufferStride[2];
+        plan->config->bufferSize            = &plan->outputBufferSize;
+        plan->config->bufferStride[0]       = plan->config->outputBufferStride[0];
+        plan->config->bufferStride[1]       = plan->config->outputBufferStride[1];
+        plan->config->bufferStride[2]       = plan->config->outputBufferStride[2];
         plan->config->outputBufferSize      = &plan->outputBufferSize;
         plan->config->outputBufferStride[0] = plan->config->size[0] / 2 + 1;
         plan->config->outputBufferStride[1] = plan->config->bufferStride[0]*plan->config->size[1];
@@ -228,10 +228,10 @@ void vkfftSetFFTPlanBufferSizes(interfaceFFTPlan* plan) {
         plan->config->inputBufferStride[0]  = plan->config->size[0] / 2 + 1;
         plan->config->inputBufferStride[1]  = plan->config->bufferStride[0]*plan->config->size[1];
         plan->config->inputBufferStride[2]  = plan->config->bufferStride[1]*plan->config->size[2];
-        plan->config->bufferSize            = &plan->inputBufferSize;
-        plan->config->bufferStride[0]       = plan->config->inputBufferStride[0];
-        plan->config->bufferStride[1]       = plan->config->inputBufferStride[1];
-        plan->config->bufferStride[2]       = plan->config->inputBufferStride[2];
+        plan->config->bufferSize            = &plan->outputBufferSize;
+        plan->config->bufferStride[0]       = plan->config->outputBufferStride[0];
+        plan->config->bufferStride[1]       = plan->config->outputBufferStride[1];
+        plan->config->bufferStride[2]       = plan->config->outputBufferStride[2];
         plan->config->outputBufferSize      = &plan->outputBufferSize;
         plan->config->outputBufferStride[0] = plan->config->size[0];
         plan->config->outputBufferStride[1] = plan->config->size[0]*plan->config->size[1];
@@ -279,7 +279,7 @@ VkFFTResult vkfftEnqueueTransform(interfaceFFTPlan* plan, cl_mem* input, cl_mem*
     }
 */
     plan->lParams->inputBuffer = input;
-    plan->lParams->buffer = input;
+    plan->lParams->buffer = dst;
     plan->lParams->outputBuffer = dst;
 
     VkFFTResult res;
