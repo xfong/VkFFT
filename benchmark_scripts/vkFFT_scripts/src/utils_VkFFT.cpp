@@ -803,14 +803,14 @@ VkFFTResult performVulkanFFT(VkGPU* vkGPU, VkFFTApplication* app, VkFFTLaunchPar
 	double totTime = std::chrono::duration_cast<std::chrono::microseconds>(timeEnd - timeSubmit).count() * 0.001;
 #elif(VKFFT_BACKEND==3)
 	cl_int res = CL_SUCCESS;
-	launchParams->commandQueue = &vkGPU->commandQueue;
+	//launchParams->commandQueue = &vkGPU->commandQueue; // needed ??
 	std::chrono::steady_clock::time_point timeSubmit = std::chrono::steady_clock::now();
 	for (uint64_t i = 0; i < num_iter; i++) {
 		resFFT = VkFFTAppend(app, inverse, launchParams);
 		if (resFFT != VKFFT_SUCCESS) return resFFT;
 	}
-	res = clFinish(vkGPU->commandQueue);
-	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
+	res = clWaitForEvents(1, &app->configuration.queueEvent);
+	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
 	std::chrono::steady_clock::time_point timeEnd = std::chrono::steady_clock::now();
 	double totTime = std::chrono::duration_cast<std::chrono::microseconds>(timeEnd - timeSubmit).count() * 0.001;
 #elif(VKFFT_BACKEND==4)
@@ -933,16 +933,17 @@ VkFFTResult performVulkanFFTiFFT(VkGPU* vkGPU, VkFFTApplication* app, VkFFTLaunc
 	time_result[0] = totTime / num_iter;
 #elif(VKFFT_BACKEND==3)
 	cl_int res = CL_SUCCESS;
-	launchParams->commandQueue = &vkGPU->commandQueue;
+	//launchParams->commandQueue = &vkGPU->commandQueue; // needed ??
 	std::chrono::steady_clock::time_point timeSubmit = std::chrono::steady_clock::now();
 	for (uint64_t i = 0; i < num_iter; i++) {
 		resFFT = VkFFTAppend(app, -1, launchParams);
 		if (resFFT != VKFFT_SUCCESS) return resFFT;
+		launchParams.queueEvent = app->configuration.queueEvent;
 		resFFT = VkFFTAppend(app, 1, launchParams);
 		if (resFFT != VKFFT_SUCCESS) return resFFT;
 	}
-	res = clFinish(vkGPU->commandQueue);
-	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
+	res = clWaitForEvents(1, &app->configuration.queueEvent);
+	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
 	std::chrono::steady_clock::time_point timeEnd = std::chrono::steady_clock::now();
 	double totTime = std::chrono::duration_cast<std::chrono::microseconds>(timeEnd - timeSubmit).count() * 0.001;
 	time_result[0] = totTime / num_iter;

@@ -765,6 +765,7 @@ static inline VkFFTResult setConfigurationVkFFT(VkFFTApplication* app, VkFFTConf
 		return VKFFT_ERROR_INVALID_CONTEXT;
 	}
 	app->configuration.context = inputLaunchConfiguration.context;
+	app->configuration.queueEvent = inputLaunchConfiguration.queueEvent;
 	cl_uint vendorID;
 	size_t value_int64;
 	cl_uint value_cl_uint;

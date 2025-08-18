@@ -87,8 +87,8 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 		app->bufferBluesteinIFFT[axis_id] = clCreateBuffer(app->configuration.context[0], CL_MEM_READ_WRITE, bufferSize, 0, &res);
 		if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_ALLOCATE;
 	}
-	cl_command_queue commandQueue = clCreateCommandQueue(app->configuration.context[0], app->configuration.device[0], 0, &res);
-	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
+	//cl_command_queue commandQueue = clCreateCommandQueue(app->configuration.context[0], app->configuration.device[0], 0, &res);
+	//if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
 #elif(VKFFT_BACKEND==4)
 	ze_result_t res = ZE_RESULT_SUCCESS;
 
@@ -283,6 +283,7 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 		if (app->configuration.stagingBufferMemory != 0)	kernelPreparationConfiguration.stagingBufferMemory = app->configuration.stagingBufferMemory;
 #elif(VKFFT_BACKEND==3)
 		kernelPreparationConfiguration.context = app->configuration.context;
+		kernelPreparationConfiguration.queueEvent = app->configuration.queueEvent;
 #elif(VKFFT_BACKEND==4)
 		kernelPreparationConfiguration.context = app->configuration.context;
 		kernelPreparationConfiguration.commandQueue = app->configuration.commandQueue;
@@ -464,7 +465,7 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 			}
 #elif(VKFFT_BACKEND==3)
 			VkFFTLaunchParams launchParams = VKFFT_ZERO_INIT;
-			launchParams.commandQueue = &commandQueue;
+			launchParams.queueEvent = app->configuration.queueEvent;
 			launchParams.inputBuffer = &app->bufferBluestein[axis_id];
 			launchParams.buffer = &app->bufferBluesteinIFFT[axis_id];
 			resFFT = VkFFTAppend(&kernelPreparationApplication, -1, &launchParams);
@@ -473,11 +474,11 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 				deleteVkFFT(&kernelPreparationApplication);
 				return resFFT;
 			}
-			res = clFinish(commandQueue);
+			res = clWaitForEvents(1, &kernelPreparationApplication->configuration.queueEvent);
 			if (res != CL_SUCCESS) {
 				free(phaseVectors);
 				deleteVkFFT(&kernelPreparationApplication);
-				return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
+				return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
 			}
 #elif(VKFFT_BACKEND==4)
 			ze_command_list_desc_t commandListDescription = VKFFT_ZERO_INIT;
@@ -816,7 +817,7 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 		}
 #elif(VKFFT_BACKEND==3)
 		VkFFTLaunchParams launchParams = VKFFT_ZERO_INIT;
-		launchParams.commandQueue = &commandQueue;
+		launchParams.queueEvent = kernelPreparationApplication->configuration.queueEvent;
 		launchParams.inputBuffer = &app->bufferBluestein[axis_id];
 		if (!app->configuration.makeInversePlanOnly) {
 			launchParams.buffer = &app->bufferBluesteinFFT[axis_id];
@@ -826,26 +827,27 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 				deleteVkFFT(&kernelPreparationApplication);
 				return resFFT;
 			}
-			res = clFinish(commandQueue);
+			res = clWaitForEvents(1, &kernelPreparationApplication->configuration.queueEvent);
 			if (res != CL_SUCCESS) {
 				free(phaseVectors);
 				deleteVkFFT(&kernelPreparationApplication);
-				return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
+				return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
 			}
 		}
 		if ((FFTPlan->numAxisUploads[axis_id] == 1) && (!app->configuration.makeForwardPlanOnly)) {
 			launchParams.buffer = &app->bufferBluesteinIFFT[axis_id];
+			launchParams.queueEvent = kernelPreparationApplication->configuration.queueEvent;
 			resFFT = VkFFTAppend(&kernelPreparationApplication, 1, &launchParams);
 			if (resFFT != VKFFT_SUCCESS) {
 				free(phaseVectors);
 				deleteVkFFT(&kernelPreparationApplication);
 				return resFFT;
 			}
-			res = clFinish(commandQueue);
+			res = clWaitForEvents(1, &kernelPreparationApplication->configuration.queueEvent);
 			if (res != CL_SUCCESS) {
 				free(phaseVectors);
 				deleteVkFFT(&kernelPreparationApplication);
-				return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
+				return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
 			}
 		}
 #elif(VKFFT_BACKEND==4)
@@ -973,9 +975,9 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 #endif
 #if(VKFFT_BACKEND==0)
 		kernelPreparationApplication.configuration.isCompilerInitialized = 0;
-#elif(VKFFT_BACKEND==3)
-		res = clReleaseCommandQueue(commandQueue);
-		if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
+//#elif(VKFFT_BACKEND==3)
+//		res = clReleaseCommandQueue(commandQueue);
+//		if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
 #endif
 		if (kernelPreparationConfiguration.saveApplicationToString) {
 			app->applicationBluesteinStringSize[axis_id] = kernelPreparationApplication.applicationStringSize;
@@ -1129,6 +1131,7 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 				if (app->configuration.stagingBufferMemory != 0)	kernelPreparationConfiguration.stagingBufferMemory = app->configuration.stagingBufferMemory;
 #elif(VKFFT_BACKEND==3)
 				kernelPreparationConfiguration.context = app->configuration.context;
+				kernelPreparationConfiguration.queueEvent = app->configuration.queueEvent;
 #elif(VKFFT_BACKEND==4)
 				kernelPreparationConfiguration.context = app->configuration.context;
 				kernelPreparationConfiguration.commandQueue = app->configuration.commandQueue;
@@ -1176,8 +1179,8 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 				cl_int res = CL_SUCCESS;
 				bufferRaderFFT = clCreateBuffer(app->configuration.context[0], CL_MEM_READ_WRITE, bufferSize, 0, &res);
 				if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_ALLOCATE;
-				cl_command_queue commandQueue = clCreateCommandQueue(app->configuration.context[0], app->configuration.device[0], 0, &res);
-				if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
+				//cl_command_queue commandQueue = clCreateCommandQueue(app->configuration.context[0], app->configuration.device[0], 0, &res);
+				//if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
 #elif(VKFFT_BACKEND==4)
 				ze_result_t res = ZE_RESULT_SUCCESS;
 				ze_device_mem_alloc_desc_t device_desc = VKFFT_ZERO_INIT;
@@ -1286,7 +1289,7 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 				}
 #elif(VKFFT_BACKEND==3)
 				VkFFTLaunchParams launchParams = VKFFT_ZERO_INIT;
-				launchParams.commandQueue = &commandQueue;
+				launchParams.queueEvent = app->configuration.queueEvent;
 				launchParams.buffer = &bufferRaderFFT;
 				resFFT = VkFFTAppend(&kernelPreparationApplication, -1, &launchParams);
 				if (resFFT != VKFFT_SUCCESS) {
@@ -1294,11 +1297,11 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 					deleteVkFFT(&kernelPreparationApplication);
 					return resFFT;
 				}
-				res = clFinish(commandQueue);
+				res = clWaitForEvents(1, &kernelPreparationApplication->configuration.queueEvent);
 				if (res != CL_SUCCESS) {
 					free(axis->specializationConstants.raderContainer[i].raderFFTkernel);
 					deleteVkFFT(&kernelPreparationApplication);
-					return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
+					return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
 				}
 #elif(VKFFT_BACKEND==4)
 				ze_command_list_desc_t commandListDescription = VKFFT_ZERO_INIT;
@@ -1370,9 +1373,9 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 
 #if(VKFFT_BACKEND==0)
 				kernelPreparationApplication.configuration.isCompilerInitialized = 0;
-#elif(VKFFT_BACKEND==3)
-				res = clReleaseCommandQueue(commandQueue);
-				if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
+//#elif(VKFFT_BACKEND==3)
+//				res = clReleaseCommandQueue(commandQueue);
+//				if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
 #endif
 #if(VKFFT_BACKEND==0)
 				vkDestroyBuffer(app->configuration.device[0], bufferRaderFFT, 0);

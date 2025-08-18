@@ -47,6 +47,10 @@ static inline VkFFTResult VkFFTSync(VkFFTApplication* app) {
         app->configuration.streamCounter = 0;
     }
 #elif(VKFFT_BACKEND==3)
+    if (app->configuration.queueEvent != NULL) {
+        cl_int res = clWaitForEvents(1, &app->configuration.queueEvent);
+        if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
+    }
 #elif(VKFFT_BACKEND==4)
     ze_result_t res = ZE_RESULT_SUCCESS;
     res = zeCommandListAppendBarrier(app->configuration.commandList[0], nullptr, 0, nullptr);
@@ -92,7 +96,7 @@ static inline VkFFTResult VkFFTAppend(VkFFTApplication* app, int inverse, VkFFTL
 #elif(VKFFT_BACKEND==2)
     app->configuration.streamCounter = 0;
 #elif(VKFFT_BACKEND==3)
-    app->configuration.commandQueue = launchParams->commandQueue;
+    app->configuration.queueEvent = launchParams->queueEvent;
 #elif(VKFFT_BACKEND==4)
     app->configuration.commandList = launchParams->commandList;
 #elif(VKFFT_BACKEND==5)
