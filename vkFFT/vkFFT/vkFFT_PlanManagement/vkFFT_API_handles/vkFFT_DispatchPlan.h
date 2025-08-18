@@ -360,12 +360,26 @@ static inline VkFFTResult VkFFT_DispatchPlan(VkFFTApplication* app, VkFFTAxis* a
 				}
 				size_t local_work_size[3] = { (size_t)axis->specializationConstants.localSize[0].data.i , (size_t)axis->specializationConstants.localSize[1].data.i ,(size_t)axis->specializationConstants.localSize[2].data.i };
 				size_t global_work_size[3] = { (size_t)dispatchSize[0] * local_work_size[0] , (size_t)dispatchSize[1] * local_work_size[1] ,(size_t)dispatchSize[2] * local_work_size[2] };
-				result = clEnqueueNDRangeKernel(app->configuration.commandQueue[0], axis->kernel, 3, 0, global_work_size, local_work_size, 0, 0, 0);
+				cl_command_queue commandQueue = clCreateCommandQueue(app->configuration.context[0], app->configuration.device[0], 0, &result);
+				cl_event ev;
+				if (reult != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
+				if (app->configuration.queueEvent == NULL) {
+					result = clEnqueueNDRangeKernel(commandQueue, axis->kernel, 3, 0, global_work_size, local_work_size, 0, NULL, &ev);
+				} else {
+					result = clEnqueueNDRangeKernel(commandQueue, axis->kernel, 3, 0, global_work_size, local_work_size, 1, &app->configuration.queueEvent, &ev);
+				}
 				//printf("%" PRIu64 " %" PRIu64 " %" PRIu64 " - %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", maxBlockSize[0], maxBlockSize[1], maxBlockSize[2], axis->specializationConstants.localSize[0], axis->specializationConstants.localSize[1], axis->specializationConstants.localSize[2]);
 
 				if (result != CL_SUCCESS) {
 					return VKFFT_ERROR_FAILED_TO_LAUNCH_KERNEL;
 				}
+				result = clReleaseCommandQueue(commandQueue); // implicit flush
+				if (result != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
+				if (app->configuration.queueEvent != NULL) { // release previous event if required
+					result = clReleaseEvent(app->configuration.queueEvent);
+					if (result != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_EVENT;
+				}
+				app->configuration.queueEvent = ev; // update previous event
 #elif(VKFFT_BACKEND==4)
 				ze_result_t result = ZE_RESULT_SUCCESS;
 				void* args[10];
