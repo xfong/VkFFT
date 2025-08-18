@@ -145,7 +145,7 @@ static inline VkFFTResult VkFFT_TransferDataFromCPU(VkFFTApplication* app, void*
 	if (res != CL_SUCCESS) {
 		return VKFFT_ERROR_FAILED_TO_COPY;
 	}
-	res = clReleaseCommandQueue(commandQueue);
+	res = clReleaseCommandQueue(commandQueue); // implicit flush
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
 #elif(VKFFT_BACKEND==4)
 	ze_result_t res = ZE_RESULT_SUCCESS;
@@ -269,7 +269,7 @@ static inline VkFFTResult VkFFT_TransferDataToCPU(VkFFTApplication* app, void* c
 	if (res != CL_SUCCESS) {
 		return VKFFT_ERROR_FAILED_TO_COPY;
 	}
-	res = clReleaseCommandQueue(commandQueue);
+	res = clReleaseCommandQueue(commandQueue); // implicit flush
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
 #elif(VKFFT_BACKEND==4)
 	ze_result_t res = ZE_RESULT_SUCCESS;

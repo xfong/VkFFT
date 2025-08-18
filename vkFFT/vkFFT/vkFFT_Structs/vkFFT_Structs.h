@@ -315,6 +315,7 @@ typedef struct {
 	pfINT  useStrict32BitAddress; // guarantee 32 bit addresses in bytes instead of number of elements. This results in fewer instructions generated. -1: Disable, 0: Infer based on size, 1: enable. Has no effect with useUint64.
 #elif(VKFFT_BACKEND==3)
 	cl_command_queue* commandQueue;
+	cl_event queueEvent;
 #elif(VKFFT_BACKEND==4)
 	ze_command_list_handle_t* commandList;//Filled at app execution
 #elif(VKFFT_BACKEND==5)
@@ -473,7 +474,14 @@ typedef enum VkFFTResult {
 	VKFFT_ERROR_FAILED_TO_CREATE_EVENT = 4052,
 	VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_LIST = 4053,
 	VKFFT_ERROR_FAILED_TO_DESTROY_COMMAND_LIST = 4054,
+#if(VKFFT_BACKEND==3) 
+	VKFFT_ERROR_FAILED_TO_SUBMIT_BARRIER = 4055,
+	VKFFT_ERROR_FAILED_TO_FLUSH_COMMAND_QUEUE = 4056,
+	VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT = 4057,
+	VKFFT_ERROR_FAILED_TO_RELEASE_EVENT = 4058
+#else
 	VKFFT_ERROR_FAILED_TO_SUBMIT_BARRIER = 4055
+#endif
 } VkFFTResult;
 
 static inline const char* getVkFFTErrorString(VkFFTResult result)
@@ -672,6 +680,14 @@ static inline const char* getVkFFTErrorString(VkFFTResult result)
 		return "VKFFT_ERROR_FAILED_TO_DESTROY_COMMAND_LIST";
 	case VKFFT_ERROR_FAILED_TO_SUBMIT_BARRIER:
 		return "VKFFT_ERROR_FAILED_TO_SUBMIT_BARRIER";
+#if(VKFFT_BACKEND==3)
+	case VKFFT_ERROR_FAILED_TO_FLUSH_COMMAND_QUEUE:
+		return "VKFFT_ERROR_FAILED_TO_FLUSH_COMMAND_QUEUE";
+	case VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT:
+		return "VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT";
+	case VKFFT_ERROR_FAILED_TO_RELEASE_EVENT;
+		return "VKFFT_ERROR_FAILED_TO_RELEASE_EVENT";
+#endif
 	}
 	return "Unknown VkFFT error";
 }
