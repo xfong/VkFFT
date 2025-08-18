@@ -478,7 +478,7 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 			if (res != CL_SUCCESS) {
 				free(phaseVectors);
 				deleteVkFFT(&kernelPreparationApplication);
-				return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
+				return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
 			}
 #elif(VKFFT_BACKEND==4)
 			ze_command_list_desc_t commandListDescription = VKFFT_ZERO_INIT;
@@ -622,6 +622,9 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 				}
 			}
 		}
+#if(VKFFT_BACKEND==3)
+		app->configuration.queueEvent = kernelPreparationApplication->configuration.queueEvent;
+#endif
 		resFFT = VkFFT_TransferDataFromCPU(app, phaseVectors, &app->bufferBluestein[axis_id], bufferSize);
 		if (resFFT != VKFFT_SUCCESS) {
 			free(phaseVectors);
@@ -817,7 +820,7 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 		}
 #elif(VKFFT_BACKEND==3)
 		VkFFTLaunchParams launchParams = VKFFT_ZERO_INIT;
-		launchParams.queueEvent = kernelPreparationApplication->configuration.queueEvent;
+		launchParams.queueEvent = app->configuration.queueEvent;
 		launchParams.inputBuffer = &app->bufferBluestein[axis_id];
 		if (!app->configuration.makeInversePlanOnly) {
 			launchParams.buffer = &app->bufferBluesteinFFT[axis_id];
@@ -831,12 +834,12 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 			if (res != CL_SUCCESS) {
 				free(phaseVectors);
 				deleteVkFFT(&kernelPreparationApplication);
-				return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
+				return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
 			}
+			launchParams.queueEvent = kernelPreparationApplication->configuration.queueEvent;
 		}
 		if ((FFTPlan->numAxisUploads[axis_id] == 1) && (!app->configuration.makeForwardPlanOnly)) {
 			launchParams.buffer = &app->bufferBluesteinIFFT[axis_id];
-			launchParams.queueEvent = kernelPreparationApplication->configuration.queueEvent;
 			resFFT = VkFFTAppend(&kernelPreparationApplication, 1, &launchParams);
 			if (resFFT != VKFFT_SUCCESS) {
 				free(phaseVectors);
@@ -847,7 +850,7 @@ static inline VkFFTResult VkFFTGeneratePhaseVectors(VkFFTApplication* app, VkFFT
 			if (res != CL_SUCCESS) {
 				free(phaseVectors);
 				deleteVkFFT(&kernelPreparationApplication);
-				return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
+				return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
 			}
 		}
 #elif(VKFFT_BACKEND==4)
@@ -1301,7 +1304,7 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 				if (res != CL_SUCCESS) {
 					free(axis->specializationConstants.raderContainer[i].raderFFTkernel);
 					deleteVkFFT(&kernelPreparationApplication);
-					return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
+					return VKFFT_ERROR_FAILED_TO_SYNCHRONIZE;
 				}
 #elif(VKFFT_BACKEND==4)
 				ze_command_list_desc_t commandListDescription = VKFFT_ZERO_INIT;

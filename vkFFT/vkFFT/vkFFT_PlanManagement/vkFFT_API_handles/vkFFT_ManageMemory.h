@@ -143,9 +143,9 @@ static inline VkFFTResult VkFFT_TransferDataFromCPU(VkFFTApplication* app, void*
 	cl_event ev;
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
 	if (app->configuration.queueEvent == NULL) {
-		res = clEnqueueWriteBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 0, NULL, &ev);
+		res = clEnqueueWriteBuffer(commandQueue, buffer[0], CL_FALSE, 0, transferSize, cpu_arr, 0, NULL, &ev);
 	} else {
-		res = clEnqueueWriteBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 1, &app->configuration.queueEvent, &ev);
+		res = clEnqueueWriteBuffer(commandQueue, buffer[0], CL_FALSE, 0, transferSize, cpu_arr, 1, &app->configuration.queueEvent, &ev);
 	}
 	if (res != CL_SUCCESS) {
 		return VKFFT_ERROR_FAILED_TO_COPY;
@@ -277,9 +277,9 @@ static inline VkFFTResult VkFFT_TransferDataToCPU(VkFFTApplication* app, void* c
 	cl_event ev;
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
 	if (app->configuration.queueEvent == NULL) {
-		res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 0, NULL, &ev);
+		res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_FALSE, 0, transferSize, cpu_arr, 0, NULL, &ev);
 	} else {
-		res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 1, &app->configuration.queueEvent, &ev);
+		res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_FALSE, 0, transferSize, cpu_arr, 1, &app->configuration.queueEvent, &ev);
 	}
 	if (res != CL_SUCCESS) {
 		return VKFFT_ERROR_FAILED_TO_COPY;
