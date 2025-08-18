@@ -140,13 +140,23 @@ static inline VkFFTResult VkFFT_TransferDataFromCPU(VkFFTApplication* app, void*
 	cl_int res = CL_SUCCESS;
 	cl_mem* buffer = (cl_mem*)input_buffer;
 	cl_command_queue commandQueue = clCreateCommandQueue(app->configuration.context[0], app->configuration.device[0], 0, &res);
+	cl_event ev;
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
-	res = clEnqueueWriteBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 0, NULL, NULL);
+	if (app->configuration.queueEvent == NULL) {
+		res = clEnqueueWriteBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 0, NULL, &ev);
+	} else {
+		res = clEnqueueWriteBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 1, &app->configuration.queueEvent, &ev);
+	}
 	if (res != CL_SUCCESS) {
 		return VKFFT_ERROR_FAILED_TO_COPY;
 	}
 	res = clReleaseCommandQueue(commandQueue); // implicit flush
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
+	if (app->configuration.queueEvent != NULL) { // release previous event if required
+		res = clReleaseEvent(app->configuration.queueEvent);
+		if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_EVENT;
+	}
+	app->configuration.queueEvent = ev; // update previous event
 #elif(VKFFT_BACKEND==4)
 	ze_result_t res = ZE_RESULT_SUCCESS;
 	void* buffer = ((void**)input_buffer)[0];
@@ -264,13 +274,23 @@ static inline VkFFTResult VkFFT_TransferDataToCPU(VkFFTApplication* app, void* c
 	cl_int res = CL_SUCCESS;
 	cl_mem* buffer = (cl_mem*)output_buffer;
 	cl_command_queue commandQueue = clCreateCommandQueue(app->configuration.context[0], app->configuration.device[0], 0, &res);
+	cl_event ev;
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
-	res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 0, NULL, NULL);
+	if (app->configuration.queueEvent == NULL) {
+		res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 0, NULL, &ev);
+	} else {
+		res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 1, &app->configuration.queueEvent, &ev);
+	}
 	if (res != CL_SUCCESS) {
 		return VKFFT_ERROR_FAILED_TO_COPY;
 	}
 	res = clReleaseCommandQueue(commandQueue); // implicit flush
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
+	if (app->configuration.queueEvent != NULL) { // release previous event if required
+		res = clReleaseEvent(app->configuration.queueEvent);
+		if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_EVENT;
+	}
+	app->configuration.queueEvent = ev; // update previous event
 #elif(VKFFT_BACKEND==4)
 	ze_result_t res = ZE_RESULT_SUCCESS;
 	void* buffer = ((void**)output_buffer)[0];
