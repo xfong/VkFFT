@@ -314,7 +314,8 @@ typedef struct {
 	pfUINT streamID;//Filled at app creation
 	pfINT  useStrict32BitAddress; // guarantee 32 bit addresses in bytes instead of number of elements. This results in fewer instructions generated. -1: Disable, 0: Infer based on size, 1: enable. Has no effect with useUint64.
 #elif(VKFFT_BACKEND==3)
-	cl_command_queue* commandQueue;
+//	cl_command_queue* commandQueue;
+	cl_event* queueEvent;
 #elif(VKFFT_BACKEND==4)
 	ze_command_list_handle_t* commandList;//Filled at app execution
 #elif(VKFFT_BACKEND==5)
@@ -345,7 +346,7 @@ typedef struct {
 	void** outputBuffer;//pointer to device buffer used to read data from if isOutputFormatted is enabled
 	void** kernel;//pointer to device buffer used to read kernel data from if performConvolution is enabled
 #elif(VKFFT_BACKEND==3)
-	cl_command_queue* commandQueue;//commandBuffer to which FFT is appended
+	//cl_command_queue* commandQueue;//commandBuffer to which FFT is appended
 
 	cl_mem* buffer;//pointer to device buffer used for computations
 	cl_mem* tempBuffer;//needed if reorderFourStep is enabled to transpose the array. Same size as buffer. Default 0. Setting to non zero value enables manual user allocation

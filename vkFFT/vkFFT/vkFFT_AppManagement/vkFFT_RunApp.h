@@ -91,8 +91,8 @@ static inline VkFFTResult VkFFTAppend(VkFFTApplication* app, int inverse, VkFFTL
     app->configuration.streamCounter = 0;
 #elif(VKFFT_BACKEND==2)
     app->configuration.streamCounter = 0;
-#elif(VKFFT_BACKEND==3)
-    app->configuration.commandQueue = launchParams->commandQueue;
+//#elif(VKFFT_BACKEND==3)
+//    app->configuration.commandQueue = launchParams->commandQueue;
 #elif(VKFFT_BACKEND==4)
     app->configuration.commandList = launchParams->commandList;
 #elif(VKFFT_BACKEND==5)

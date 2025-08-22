@@ -141,12 +141,22 @@ static inline VkFFTResult VkFFT_TransferDataFromCPU(VkFFTApplication* app, void*
 	cl_mem* buffer = (cl_mem*)input_buffer;
 	cl_command_queue commandQueue = clCreateCommandQueue(app->configuration.context[0], app->configuration.device[0], 0, &res);
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
-	res = clEnqueueWriteBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 0, NULL, NULL);
+	cl_uint cnt = 1;
+	if (app->configuration.queueEvent == NULL) {
+		cnt = 0;
+	}
+	cl_event ev;
+	res = clEnqueueWriteBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, cnt, app->configuration.queueEvent, &ev);
 	if (res != CL_SUCCESS) {
 		return VKFFT_ERROR_FAILED_TO_COPY;
 	}
-	res = clReleaseCommandQueue(commandQueue);
+	res = clReleaseCommandQueue(commandQueue); // implicit flush
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
+	if (app->configuration.queueEvent != NULL) { // should never be null but we error check here
+		res = clReleaseEvent(app->configuration.queueEvent[0]);
+		if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_EVENT;
+		app->configuration.queueEvent[0] = ev;
+	}
 #elif(VKFFT_BACKEND==4)
 	ze_result_t res = ZE_RESULT_SUCCESS;
 	void* buffer = ((void**)input_buffer)[0];
@@ -265,12 +275,22 @@ static inline VkFFTResult VkFFT_TransferDataToCPU(VkFFTApplication* app, void* c
 	cl_mem* buffer = (cl_mem*)output_buffer;
 	cl_command_queue commandQueue = clCreateCommandQueue(app->configuration.context[0], app->configuration.device[0], 0, &res);
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_CREATE_COMMAND_QUEUE;
-	res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, 0, NULL, NULL);
+	cl_uint cnt = 1;
+	if (app->configuration.queueEvent == NULL) {
+		cnt = 0;
+	}
+	cl_event ev;
+	res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, cnt, app->configuration.queueEvent, &ev);
 	if (res != CL_SUCCESS) {
 		return VKFFT_ERROR_FAILED_TO_COPY;
 	}
-	res = clReleaseCommandQueue(commandQueue);
+	res = clReleaseCommandQueue(commandQueue); // implicit flush
 	if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_COMMAND_QUEUE;
+	if (app->configuration.queueEvent != NULL) { // should never be null but we error check here
+		res = clReleaseEvent(app->configuration.queueEvent[0]);
+		if (res != CL_SUCCESS) return VKFFT_ERROR_FAILED_TO_RELEASE_EVENT;
+		app->configuration.queueEvent[0] = ev;
+	}
 #elif(VKFFT_BACKEND==4)
 	ze_result_t res = ZE_RESULT_SUCCESS;
 	void* buffer = ((void**)output_buffer)[0];
