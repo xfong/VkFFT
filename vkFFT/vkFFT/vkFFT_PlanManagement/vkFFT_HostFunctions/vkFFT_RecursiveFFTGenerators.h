@@ -1121,7 +1121,7 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 				if (app->configuration.stagingBufferMemory != 0)	kernelPreparationConfiguration.stagingBufferMemory = app->configuration.stagingBufferMemory;
 #elif(VKFFT_BACKEND==3)
 				kernelPreparationConfiguration.context = app->configuration.context;
-				kernelPreparationConfiguration.queueEvent = app->configuration.queueEvent;
+				kernelPreparationConfiguration.queueEvent = app->configuration.queueEvent; // this should not be the global event, since a new plan is created every iteration of the for loop and given to the VkFFTAppend call
 #elif(VKFFT_BACKEND==4)
 				kernelPreparationConfiguration.context = app->configuration.context;
 				kernelPreparationConfiguration.commandQueue = app->configuration.commandQueue;
