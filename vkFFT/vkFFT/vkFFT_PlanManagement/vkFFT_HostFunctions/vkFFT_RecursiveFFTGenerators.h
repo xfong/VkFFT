@@ -986,9 +986,6 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 	//generate Rader FFTKernel
 	VkFFTResult resFFT = VKFFT_SUCCESS;
 	if (axis->specializationConstants.useRader) {
-#if(VKFFT_BACKEND==3)
-		bool devFuncRan = false;
-#endif
 		for (pfUINT i = 0; i < axis->specializationConstants.numRaderPrimes; i++) {
 			if (axis->specializationConstants.raderContainer[i].type == 0) {
 				for (pfUINT j = 0; j < app->numRaderFFTPrimes; j++) {
@@ -1121,7 +1118,7 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 				if (app->configuration.stagingBufferMemory != 0)	kernelPreparationConfiguration.stagingBufferMemory = app->configuration.stagingBufferMemory;
 #elif(VKFFT_BACKEND==3)
 				kernelPreparationConfiguration.context = app->configuration.context;
-				kernelPreparationConfiguration.queueEvent = app->configuration.queueEvent; // this should not be the global event, since a new plan is created every iteration of the for loop and given to the VkFFTAppend call
+				kernelPreparationConfiguration.queueEvent = app->configuration.queueEvent;
 #elif(VKFFT_BACKEND==4)
 				kernelPreparationConfiguration.context = app->configuration.context;
 				kernelPreparationConfiguration.commandQueue = app->configuration.commandQueue;
@@ -1287,7 +1284,6 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 					deleteVkFFT(&kernelPreparationApplication);
 					return resFFT;
 				}
-				devFuncRan = true;
 				//res = clWaitForEvents(1, kernelPreparationApplication->configuration.queueEvent); // will synchronize in transfer between device and host later
 				//if (res != CL_SUCCESS) {
 				//	free(axis->specializationConstants.raderContainer[i].raderFFTkernel);
@@ -1387,14 +1383,6 @@ static inline VkFFTResult VkFFTGenerateRaderFFTKernel(VkFFTApplication* app, VkF
 				deleteVkFFT(&kernelPreparationApplication);
 			}
 		}
-#if(VKFFT_BACKEND==3)
-		if (devFuncRan) {
-			res = clWaitForEvents(1, app->configuration.queueEvent); // synchronize after all transfers from device to host
-			if (res != CL_SUCCESS) {
-				return VKFFT_ERROR_FAILED_TO_WAIT_FOR_EVENT;
-			}
-		}
-#endif
 		if (app->configuration.loadApplicationFromString) {
 			pfUINT offset = 0;
 			for (pfUINT i = 0; i < app->numRaderFFTPrimes; i++) {

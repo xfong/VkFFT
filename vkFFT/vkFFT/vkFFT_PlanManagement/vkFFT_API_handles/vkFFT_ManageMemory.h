@@ -280,7 +280,7 @@ static inline VkFFTResult VkFFT_TransferDataToCPU(VkFFTApplication* app, void* c
 		cnt = 0;
 	}
 	cl_event ev;
-	res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_FALSE, 0, transferSize, cpu_arr, cnt, app->configuration.queueEvent, &ev);
+	res = clEnqueueReadBuffer(commandQueue, buffer[0], CL_TRUE, 0, transferSize, cpu_arr, cnt, app->configuration.queueEvent, &ev);
 	if (res != CL_SUCCESS) {
 		return VKFFT_ERROR_FAILED_TO_COPY;
 	}
